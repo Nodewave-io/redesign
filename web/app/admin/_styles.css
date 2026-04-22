@@ -1,0 +1,103 @@
+/* Admin design tokens — mirrors the playground palette (--fo-*) so the
+ * admin feels like the same product. Scoped under [data-admin] so we
+ * don't leak admin-only colors into the rest of the site, but the vars
+ * live at :root too so portal-rendered modals can read them.
+ */
+
+:root {
+  --nw-admin-bg: #FAFAFA;
+  --nw-admin-fg: #0F1211;
+  --nw-admin-primary: #0A80FE;
+  --nw-admin-primary-hover: #0968D3;
+  --nw-admin-muted: rgba(15, 18, 17, 0.55);
+  --nw-admin-muted-soft: rgba(15, 18, 17, 0.4);
+  --nw-admin-border-outer: rgba(15, 18, 17, 0.08);
+  --nw-admin-border-inner: rgba(15, 18, 17, 0.06);
+  --nw-admin-border-strong: rgba(15, 18, 17, 0.18);
+  --nw-admin-surface-outer: rgba(255, 255, 255, 0.6);
+  --nw-admin-surface-inner: #FFFFFF;
+  --nw-admin-hover: rgba(15, 18, 17, 0.04);
+  --nw-admin-pressed: rgba(15, 18, 17, 0.06);
+  --nw-admin-success: #22C55E;
+  --nw-admin-success-bg: rgba(34, 197, 94, 0.10);
+  --nw-admin-success-fg: #16A34A;
+  --nw-admin-danger: #DC2626;
+  --nw-admin-danger-bg: rgba(220, 38, 38, 0.10);
+  --nw-admin-warning: #D97706;
+  --nw-admin-warning-bg: rgba(217, 119, 6, 0.10);
+}
+
+[data-admin] {
+  background-color: var(--nw-admin-bg);
+  color: var(--nw-admin-fg);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", system-ui, sans-serif;
+}
+
+[data-admin] ::selection {
+  background: rgba(10, 128, 254, 0.18);
+  color: var(--nw-admin-fg);
+}
+
+[data-admin] input,
+[data-admin] textarea,
+[data-admin] select {
+  font-family: inherit;
+  color: var(--nw-admin-fg);
+}
+
+[data-admin] input::placeholder,
+[data-admin] textarea::placeholder {
+  color: rgba(15, 18, 17, 0.35);
+}
+
+[data-admin] select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%230F1211' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  padding-right: 32px !important;
+}
+
+@keyframes nw-admin-fade-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.nw-admin-fade-in {
+  animation: nw-admin-fade-in 200ms ease-out both;
+}
+
+/* Shared card helper — the double-border pattern (outer translucent
+ * tray, inner solid white) used throughout the playground demos. */
+.nw-admin-card {
+  border-radius: 24px;
+  background: var(--nw-admin-surface-outer);
+  border: 1px solid var(--nw-admin-border-outer);
+  padding: 16px;
+}
+.nw-admin-card__inner {
+  border-radius: 20px;
+  background: var(--nw-admin-surface-inner);
+  border: 1px solid var(--nw-admin-border-inner);
+}
+
+/* Scrollbar-hiding utility. Scroll still works; the track just isn't
+ * drawn. Applied to explicit opt-in containers plus everything inside
+ * [data-admin] so the admin UI stays visually clean — the page bg
+ * already provides edge contrast, and vertical scroll hints come from
+ * content cut-off. */
+.nw-no-scrollbar,
+[data-admin],
+[data-admin] * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.nw-no-scrollbar::-webkit-scrollbar,
+[data-admin] ::-webkit-scrollbar,
+[data-admin]::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
