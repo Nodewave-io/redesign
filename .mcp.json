@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "redesign": {
+      "command": "npx",
+      "args": ["tsx", "/Users/nodewave/Developer/nodewave/redesign/src/mcp/index.ts"]
+    }
+  }
+}

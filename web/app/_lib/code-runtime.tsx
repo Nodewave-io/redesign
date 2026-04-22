@@ -79,11 +79,23 @@ const DEBUG = typeof window !== 'undefined'
 // source starts with `<`, we treat it as (A). Otherwise (B).
 
 function stripPrelude(source: string): string {
-  return source
-    .replace(/^\s*"use client";?\s*/m, '')
-    .replace(/^\s*'use client';?\s*/m, '')
-    .replace(/^\s*import[^;]+;?\s*/gm, '')
-    .trim()
+  return (
+    source
+      .replace(/^\s*"use client";?\s*/m, '')
+      .replace(/^\s*'use client';?\s*/m, '')
+      // Imports — line-scoped. The previous `[^;]+;?` version
+      // greedy-matched across lines when the source had no semicolons
+      // (the Figma/React-Icon-Exporter style), swallowing the entire
+      // file. Match a single import line from `import` to EOL instead.
+      .replace(/^\s*import\s+[^\n]+$/gm, '')
+      // Non-default exports (`export const X = ...`, `export function Y()`,
+      // etc.) trip Babel in script-mode. Strip the `export` keyword but
+      // keep the declaration so the identifier stays reachable for the
+      // `collectTopLevelNames` fallback. `export default` is rewritten
+      // separately in compileSource — leave it alone here.
+      .replace(/^(\s*)export\s+(?=(const|let|var|function|class|async)\s)/gm, '$1')
+      .trim()
+  )
 }
 
 /** Transpile + evaluate either a JSX expression or a component module. */

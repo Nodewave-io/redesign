@@ -5,7 +5,7 @@
 // The editor's left-panel picker only *inserts* — management happens
 // here.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { AdminSidebar } from '@/components/admin/sidebar'
@@ -202,44 +202,157 @@ function CategoryFilter({
   onChange: (f: string) => void
   assets: MediaAsset[]
 }) {
+  // Ranked by asset count so the most-used category sits at the top
+  // of the dropdown. SUGGESTED_CATEGORIES ignored — reflect reality.
   const inUse = useMemo(() => {
-    const s = new Set<string>()
+    const counts = new Map<string, number>()
     for (const a of assets) {
-      for (const c of a.categories ?? []) s.add(c)
+      for (const c of a.categories ?? []) {
+        counts.set(c, (counts.get(c) ?? 0) + 1)
+      }
     }
-    return Array.from(s).sort()
+    return Array.from(counts.entries()).sort(
+      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
+    )
   }, [assets])
 
-  const options = ['all', ...new Set([...SUGGESTED_CATEGORIES, ...inUse])]
+  // No categories yet? Skip the control entirely.
+  if (inUse.length === 0) return null
+
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  // Click-outside + Esc to close. Listener attaches only while the
+  // menu is open so the doc-level handlers don't fire on every click
+  // when the app is idle.
+  useEffect(() => {
+    if (!open) return
+    const onDocClick = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const label = filter === 'all' ? 'All categories' : filter
 
   return (
-    <div
-      className="inline-flex items-center rounded-full p-1 flex-wrap"
+    <div ref={rootRef} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-2 px-4 h-10 text-sm rounded-full transition-colors capitalize"
+        style={{
+          background: 'var(--nw-admin-surface-inner)',
+          border: '1px solid var(--nw-admin-surface-border)',
+          color: 'var(--nw-admin-surface-fg)',
+          minWidth: 180,
+          justifyContent: 'space-between',
+        }}
+      >
+        <span className="truncate">{label}</span>
+        <svg
+          className="w-3 h-3 shrink-0"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{
+            transform: open ? 'rotate(180deg)' : 'none',
+            transition: 'transform 120ms',
+          }}
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      {open && (
+        // Popover list — capped height + scroll so 100+ categories
+        // don't blow out the page. Positioned absolute below the
+        // trigger, right-aligned so long labels don't clip off the
+        // right edge of the viewport.
+        <div
+          className="absolute z-30 mt-1 right-0 rounded-2xl overflow-hidden"
+          style={{
+            minWidth: 220,
+            maxHeight: 360,
+            background: 'var(--nw-admin-surface-inner)',
+            border: '1px solid var(--nw-admin-surface-border)',
+            boxShadow: '0 8px 24px rgba(24,18,15,0.08)',
+          }}
+        >
+          <div className="overflow-y-auto" style={{ maxHeight: 358 }}>
+            <DropdownItem
+              label="All categories"
+              active={filter === 'all'}
+              onClick={() => {
+                onChange('all')
+                setOpen(false)
+              }}
+            />
+            {inUse.map(([name, count]) => (
+              <DropdownItem
+                key={name}
+                label={name}
+                count={count}
+                active={filter === name}
+                onClick={() => {
+                  onChange(name)
+                  setOpen(false)
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DropdownItem({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string
+  count?: number
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm transition-colors capitalize text-left"
       style={{
-        background: 'var(--nw-admin-surface-inner)',
-        border: '1px solid rgba(24,18,15,0.08)',
+        background: active ? 'var(--nw-admin-hover)' : 'transparent',
+        color: 'var(--nw-admin-fg)',
+        fontWeight: active ? 500 : 400,
+      }}
+      onMouseEnter={(e) => {
+        if (!active) e.currentTarget.style.background = 'var(--nw-admin-hover)'
+      }}
+      onMouseLeave={(e) => {
+        if (!active) e.currentTarget.style.background = 'transparent'
       }}
     >
-      {options.map((opt) => {
-        const active = filter === opt
-        return (
-          <button
-            key={opt}
-            onClick={() => onChange(opt)}
-            className="px-3 text-xs rounded-full transition-colors capitalize"
-            style={{
-              background: active ? 'rgba(24,18,15,0.08)' : 'transparent',
-              color: active ? 'var(--nw-admin-fg)' : 'rgba(24,18,15,0.55)',
-              fontWeight: active ? 500 : 400,
-              border: active ? '1px solid rgba(24,18,15,0.18)' : '1px solid transparent',
-              height: 36,
-            }}
-          >
-            {opt}
-          </button>
-        )
-      })}
-    </div>
+      <span className="truncate">{label}</span>
+      {count != null && (
+        <span
+          className="text-xs tabular-nums shrink-0"
+          style={{ color: 'var(--nw-admin-muted)' }}
+        >
+          {count}
+        </span>
+      )}
+    </button>
   )
 }
 
@@ -270,8 +383,31 @@ function AssetCard({
         }}
       >
         {asset.kind === 'component' ? (
-          <div className="absolute inset-0 bg-white">
-            <CodeRunner source={asset.source_code ?? ''} />
+          // Center the component inside the preview. Icons are tiny by
+          // default (24×24 from the Figma exporter) so they land in the
+          // top-left of a 200px card and look broken; auto-scale them
+          // up when we detect an icon-sized asset. The `currentColor`
+          // default on seeded icons inherits the container's color, so
+          // setting ink here gives them a visible tint.
+          <div
+            className="absolute inset-0 bg-white flex items-center justify-center"
+            style={{ color: 'var(--nw-admin-fg)' }}
+          >
+            <div
+              style={{
+                // Icon-sized assets (<=64px) upscale ~5x so a 24px icon
+                // reads at ~120px in the preview. Bigger components
+                // render at their natural size and rely on the outer
+                // `overflow-hidden` to clip any runaway edges.
+                transform:
+                  (asset.width ?? 0) > 0 && (asset.width ?? 0) <= 64
+                    ? 'scale(5)'
+                    : 'none',
+                transformOrigin: 'center center',
+              }}
+            >
+              <CodeRunner source={asset.source_code ?? ''} />
+            </div>
           </div>
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
