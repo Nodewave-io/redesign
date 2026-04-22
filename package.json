@@ -1,0 +1,59 @@
+{
+  "name": "@nodewave/redesign",
+  "version": "0.1.0-pre",
+  "description": "Claude-native local editor for LinkedIn / Instagram carousels. MCP-driven, SQLite-backed, zero-cloud.",
+  "license": "MIT",
+  "author": "Nodewave <hello@nodewave.io> (https://nodewave.io)",
+  "homepage": "https://nodewave.io/redesign",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nodewave/redesign.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Nodewave/redesign/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "redesign": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "web",
+    "schema",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "tsx src/cli.ts start",
+    "build": "tsc -p tsconfig.json && chmod 755 dist/cli.js dist/mcp/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "db:init": "tsx src/db/init.ts",
+    "mcp": "tsx src/mcp/index.ts"
+  },
+  "keywords": [
+    "claude",
+    "mcp",
+    "model-context-protocol",
+    "linkedin",
+    "instagram",
+    "carousel",
+    "design",
+    "ai",
+    "local-first",
+    "nodewave"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "better-sqlite3": "^11.3.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^20.12.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  }
+}
