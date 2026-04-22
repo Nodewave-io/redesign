@@ -1,17 +1,13 @@
 'use client'
 
 // Headless render route. Renders a SINGLE slide at its native
-// 1080×1350 dimensions with no chrome, so Puppeteer can screenshot
-// the `#nw-slide-root` element and get a pixel-perfect PNG export.
+// 1080×1350 dimensions with no chrome so Puppeteer can screenshot
+// the `#nw-slide-root` element and get a pixel-perfect PNG.
 //
-// Auth: a short-lived render key passed as ?key=… that the export
-// endpoint generates and verifies against the user's session. Since
-// this page runs in the puppeteer browser where we've disabled cookie
-// jar persistence, we can't rely on the admin's supabase session.
-//
-// The page body publishes `window.__slideReady = true` once the
-// slide has laid out + fonts + images have loaded, which Puppeteer
-// waits on before taking the screenshot.
+// Local-mode: no render key — the server binds to localhost only, so
+// any request reaching this page is trusted. The page publishes
+// `window.__slideReady = true` once the slide has laid out + fonts +
+// images have loaded; Puppeteer waits on that before screenshotting.
 
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
@@ -29,7 +25,6 @@ export default function RenderSlide() {
   const search = useSearchParams()
   const postId = String(params.postId)
   const slideIndex = parseInt(search.get('slide') ?? '0', 10) || 0
-  const key = search.get('key') ?? ''
 
   const [post, setPost] = useState<MediaPost | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -38,7 +33,7 @@ export default function RenderSlide() {
     ;(async () => {
       try {
         const res = await fetch(
-          `/api/media/render-data?postId=${encodeURIComponent(postId)}&key=${encodeURIComponent(key)}`,
+          `/api/media/render-data?postId=${encodeURIComponent(postId)}`,
           { cache: 'no-store' },
         )
         if (!res.ok) {
@@ -51,7 +46,7 @@ export default function RenderSlide() {
         setError(err?.message ?? String(err))
       }
     })()
-  }, [postId, key])
+  }, [postId])
 
   // Once post is loaded, wait for fonts + any <img> in the DOM before
   // signaling puppeteer it can screenshot.

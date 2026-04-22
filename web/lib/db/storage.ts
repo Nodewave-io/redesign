@@ -9,7 +9,7 @@
 import { extname, dirname, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { mkdir, writeFile, unlink } from 'node:fs/promises'
-import { ASSETS_DIR, EXPORTS_DIR, ensureDirs } from './paths.js'
+import { ASSETS_DIR, EXPORTS_DIR, ensureDirs } from './paths'
 
 export type StoredFile = {
   storage_path: string  // relative, e.g. "assets/7f3e-….png"

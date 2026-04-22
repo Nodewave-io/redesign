@@ -314,11 +314,18 @@ export function Canvas() {
 
   return (
     <div
-      className="relative flex-1 min-w-0"
-      style={{ background: 'transparent' }}
+      // Edge-to-edge canvas area. Overlays (sidebar + right panel)
+      // float on top; slides can scroll under them. Dots paint on the
+      // cream page bg and track the canvas transform below.
+      className="absolute inset-0"
+      style={{ background: 'var(--nw-admin-bg)' }}
     >
       <div
         ref={wrapRef}
+        // Viewport of the canvas — no dots here. The dots live inside
+        // the scaled world div below so they inherit the zoom + pan
+        // of the content, which is what makes them feel anchored to
+        // the canvas coordinate system (n8n / Miro behavior).
         className="absolute inset-0 select-none nw-no-scrollbar"
         style={{
           overflow: viewMode === 'strip' ? 'auto' : 'hidden',
@@ -398,6 +405,18 @@ export function Canvas() {
               : { position: 'absolute', inset: 0 }
           }
         >
+        {/* World-space dot grid — sibling of the slide strip, rendered
+            first so it sits behind everything. The huge negative inset
+            makes the pattern span far past the slide bounds so zoom-
+            out / heavy pan still shows dots edge-to-edge. Inherits the
+            parent's transform (scale in stitched mode, scale+translate
+            in carousel mode), so dots zoom with the content and feel
+            anchored to the canvas coordinate system. */}
+        <div
+          aria-hidden
+          className="nw-admin-dots absolute pointer-events-none"
+          style={{ inset: '-30000px' }}
+        />
         {post.slides.map((slide, i) => (
           <SlideFrame
             key={slide.id}
@@ -532,17 +551,22 @@ export function Canvas() {
       </div>
 
       {/* Floating zoom-reset badge (only when the user has manually
-          zoomed). Save / Export live in the right panel footer. */}
+          zoomed). Sits to the LEFT of the right panel so it doesn't
+          overlap — right-panel is 280px wide with a 16px margin, so
+          offset = 16 + 280 + 8 = 304px from the viewport's right edge. */}
       {viewMode === 'strip' && userZoom !== null && (
         <button
           onClick={() => setUserZoom(null)}
-          className="absolute top-4 right-4 z-30 px-3 text-[11px] font-medium rounded-full transition-colors"
+          className="fixed top-4 z-40 px-3 text-[11px] font-medium rounded-full transition-colors"
           style={{
-            background: '#FFFFFF',
-            border: '1px solid rgba(15,18,17,0.12)',
-            color: '#0F1211',
+            right: 304,
+            background: 'var(--nw-admin-surface-inner)',
+            border: '1px solid var(--nw-admin-surface-border)',
+            color: 'var(--nw-admin-surface-fg)',
             height: 36,
           }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--nw-admin-hover)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--nw-admin-surface-inner)' }}
           title="Reset zoom to fit"
         >
           {Math.round((userZoom / autoScale) * 100)}% · reset
@@ -637,7 +661,7 @@ function LayerWrapper({
           <div
             className="pointer-events-none absolute inset-0"
             style={{
-              outline: '2px solid #0A80FE',
+              outline: '2px solid var(--nw-admin-accent)',
               outlineOffset: 0,
             }}
           />
@@ -670,7 +694,7 @@ function ResizeHandles({ layer, scale }: { layer: Layer; scale: number }) {
             width: 10,
             height: 10,
             background: '#FFFFFF',
-            border: '1.5px solid #0A80FE',
+            border: '1.5px solid var(--nw-admin-accent)',
             borderRadius: 2,
             ...h.style,
           }}

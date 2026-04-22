@@ -47,7 +47,9 @@
   ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
+    "@puppeteer/browsers": "^2.13.0",
     "better-sqlite3": "^11.3.0",
+    "puppeteer-core": "^24.42.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

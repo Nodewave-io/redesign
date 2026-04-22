@@ -1,0 +1,202 @@
+/* Admin design tokens — Redesign palette.
+ *
+ * Pulls the landing page's brand colors into the editor chrome so
+ * nodewave.io/redesign and the standalone app feel like one product:
+ *   CREAM  #F5EFE6  – page background
+ *   INK    #18120F  – primary text
+ *   ACCENT #F04E23  – primary action + italic emphasis
+ *
+ * Surfaces (cards, panels) sit on the cream page with translucent
+ * whites so they feel lifted without going cold. Hover/pressed use
+ * ink-based alphas so interaction feedback tones with the bg.
+ *
+ * All tokens are defined at :root too so portal-rendered modals
+ * (react-portal, etc) still see them outside [data-admin].
+ */
+
+:root {
+  /* Brand */
+  --nw-admin-bg:                #F5EFE6;
+  --nw-admin-fg:                #18120F;
+  --nw-admin-accent:            #F04E23;
+  --nw-admin-primary:           #F04E23;
+  --nw-admin-primary-hover:     #D43F17;
+
+  /* Text tones derived from INK so they blend on cream */
+  --nw-admin-muted:             rgba(24, 18, 15, 0.55);
+  --nw-admin-muted-soft:        rgba(24, 18, 15, 0.40);
+
+  /* Borders — three weights for nesting (outer tray, inner card, focus) */
+  --nw-admin-border-outer:      rgba(24, 18, 15, 0.08);
+  --nw-admin-border-inner:      rgba(24, 18, 15, 0.06);
+  --nw-admin-border-strong:     rgba(24, 18, 15, 0.18);
+
+  /* Elevated surfaces — translucent whites over cream. The cream bg
+   * tints through so cards feel warm (not cold pure-white), and the
+   * outer→inner step is just a brightness bump for nested hierarchy.
+   * Text and borders on these surfaces stay ink-based since the
+   * surfaces themselves are light. */
+  --nw-admin-surface-outer:         rgba(255, 255, 255, 0.50);
+  --nw-admin-surface-inner:         rgba(255, 255, 255, 0.80);
+  --nw-admin-surface-fg:            #18120F;
+  --nw-admin-surface-muted:         rgba(24, 18, 15, 0.55);
+  --nw-admin-surface-muted-soft:    rgba(24, 18, 15, 0.40);
+  --nw-admin-surface-border:        rgba(24, 18, 15, 0.10);
+  --nw-admin-surface-border-strong: rgba(24, 18, 15, 0.18);
+  --nw-admin-surface-hover:         rgba(24, 18, 15, 0.04);
+  --nw-admin-surface-pressed:       rgba(24, 18, 15, 0.06);
+
+  /* Interaction (on cream bg) */
+  --nw-admin-hover:             rgba(24, 18, 15, 0.04);
+  --nw-admin-pressed:           rgba(24, 18, 15, 0.06);
+
+  /* Semantic */
+  --nw-admin-success:           #22C55E;
+  --nw-admin-success-bg:        rgba(34, 197, 94, 0.10);
+  --nw-admin-success-fg:        #16A34A;
+  --nw-admin-danger:            #DC2626;
+  --nw-admin-danger-bg:         rgba(220, 38, 38, 0.10);
+  --nw-admin-warning:           #D97706;
+  --nw-admin-warning-bg:        rgba(217, 119, 6, 0.10);
+}
+
+[data-admin] {
+  background-color: var(--nw-admin-bg);
+  color: var(--nw-admin-fg);
+  /* Manrope (landing's --font-display) so app chrome and landing
+   * type-match. Falls back cleanly if the font var hasn't hydrated. */
+  font-family: var(--font-display), -apple-system, BlinkMacSystemFont,
+    "SF Pro Display", "SF Pro Text", "Inter", system-ui, sans-serif;
+}
+
+[data-admin] ::selection {
+  /* Accent-tinted selection — replaces the old blue so highlights feel
+   * on-brand. 22% alpha keeps text readable over the orange. */
+  background: rgba(240, 78, 35, 0.22);
+  color: var(--nw-admin-fg);
+}
+
+[data-admin] input,
+[data-admin] textarea,
+[data-admin] select {
+  font-family: inherit;
+  color: var(--nw-admin-fg);
+}
+
+[data-admin] input::placeholder,
+[data-admin] textarea::placeholder {
+  color: rgba(24, 18, 15, 0.35);
+}
+
+/* Strip the browser-default spinner arrows from number inputs. The
+ * slide count is the only one we expose today, but applying globally
+ * means any future numeric field inherits the clean look. Keyboard
+ * up/down arrows still work — browsers only remove the visible UI. */
+[data-admin] input[type='number']::-webkit-outer-spin-button,
+[data-admin] input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+[data-admin] input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+/* Flatten the native color-picker chrome so the round wrapper actually
+ * shows the picked color across the whole circle. By default Chrome
+ * draws a small square swatch inside padded whitespace — the wrapper's
+ * border-radius has no effect on the inner render. Zeroing padding on
+ * the Chrome swatch-wrapper + rounding the swatch itself (+ Firefox's
+ * `::-moz-color-swatch`) makes the preview fill the circle. */
+.nw-color-swatch { padding: 0; overflow: hidden; }
+.nw-color-swatch::-webkit-color-swatch-wrapper { padding: 0; }
+.nw-color-swatch::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+.nw-color-swatch::-moz-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+
+/* Dark-surface inputs (search, filters, any field sitting on the dark
+ * surface tokens) need a cream-based placeholder so it reads against
+ * the near-black bg. Opt in with `.nw-dark-input`. */
+[data-admin] .nw-dark-input::placeholder {
+  color: var(--nw-admin-surface-muted-soft);
+}
+
+[data-admin] select {
+  appearance: none;
+  -webkit-appearance: none;
+  /* Caret uses the new INK hex (#18120F → url-encoded %2318120F). */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2318120F' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  padding-right: 32px !important;
+}
+
+@keyframes nw-admin-fade-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.nw-admin-fade-in {
+  animation: nw-admin-fade-in 200ms ease-out both;
+}
+
+/* Dotted canvas background — n8n-style infinite dot grid. Sits behind
+ * the scrolling content so dots move with the page (not fixed to the
+ * viewport).
+ *
+ *   background-size: 24px 24px
+ *   background-position: center
+ *
+ * Centering the origin on the container means the first and last dot
+ * rows are equidistant from the top/bottom edges (and same for left/
+ * right) — whichever direction the container grows in, the leftover
+ * gap is split evenly. Max asymmetry is half a tile (12px), which
+ * reads as "balanced" to the eye even when the container's width
+ * isn't an exact multiple of 24.
+ *
+ * Dot color is kept faint (12% ink) so it's visible on the cream bg
+ * without bleeding through the translucent-white card surfaces. */
+.nw-admin-dots {
+  background-image: radial-gradient(
+    circle,
+    rgba(24, 18, 15, 0.12) 2px,
+    transparent 2.5px
+  );
+  background-size: 48px 48px;
+  background-position: center center;
+}
+
+/* Shared card helper — the double-surface pattern (outer translucent
+ * tray, inner brighter card face) used across the app. */
+.nw-admin-card {
+  border-radius: 24px;
+  background: var(--nw-admin-surface-outer);
+  border: 1px solid var(--nw-admin-border-outer);
+  padding: 16px;
+}
+.nw-admin-card__inner {
+  border-radius: 20px;
+  background: var(--nw-admin-surface-inner);
+  border: 1px solid var(--nw-admin-surface-border);
+}
+
+/* Scrollbar-hiding: applied across the admin surface so the page feels
+ * clean. Content edges + fades provide the scroll hint. */
+.nw-no-scrollbar,
+[data-admin],
+[data-admin] * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.nw-no-scrollbar::-webkit-scrollbar,
+[data-admin] ::-webkit-scrollbar,
+[data-admin]::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}

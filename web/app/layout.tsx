@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Manrope, Space_Mono } from 'next/font/google'
 import './globals.css'
+import './_styles.css'
 
 // The editor reads var(--font-display) and var(--font-mono-accent)
 // directly from CSS. Keep the variable names identical to the

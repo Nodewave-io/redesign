@@ -3,14 +3,15 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
+// Sidebar for the standalone Redesign app. Two destinations:
+//   Posts   →  /        (overview grid of saved posts)
+//   Assets  →  /assets  (reusable image + component library)
+// `exact` on Posts: highlight only when on `/` itself, not when drilled
+// into /edit/[id]. From there, clicking Posts should feel like "go
+// back up", not "you're already here".
 const NAV_ITEMS = [
-  { label: 'Posts', href: '/admin/dashboard' },
-  // `exact`: highlight only when the user is on the overview itself,
-  // not when they've drilled into /edit/[id] or /assets. Clicking Media
-  // from there should feel like "go back up", so we don't show it as
-  // already selected.
-  { label: 'Media', href: '/admin/media', exact: true },
-  { label: 'Onboarding', href: '/admin/onboarding' },
+  { label: 'Posts', href: '/', exact: true },
+  { label: 'Assets', href: '/assets' },
 ]
 
 export function AdminSidebar({ extra }: { extra?: React.ReactNode } = {}) {
@@ -27,11 +28,15 @@ export function AdminSidebar({ extra }: { extra?: React.ReactNode } = {}) {
         gap: '12px',
       }}
     >
+      {/* Dark tray — sits against the cream page like the landing's
+          dark nav. Outer is near-black, inner is the slightly-lighter
+          card face. All text + icon tokens come from the `surface-*`
+          family so nothing references cream-page tokens by mistake. */}
       <div
         className="rounded-3xl"
         style={{
           background: 'var(--nw-admin-surface-outer)',
-          border: '1px solid var(--nw-admin-border-outer)',
+          border: '1px solid var(--nw-admin-surface-border)',
           padding: '10px',
         }}
       >
@@ -39,7 +44,7 @@ export function AdminSidebar({ extra }: { extra?: React.ReactNode } = {}) {
           className="rounded-3xl"
           style={{
             background: 'var(--nw-admin-surface-inner)',
-            border: '1px solid var(--nw-admin-border-inner)',
+            border: '1px solid var(--nw-admin-surface-border)',
             padding: '8px',
           }}
         >
@@ -54,22 +59,22 @@ export function AdminSidebar({ extra }: { extra?: React.ReactNode } = {}) {
                   href={item.href}
                   className="flex w-full items-center justify-center px-4 py-2 rounded-full text-sm font-medium transition-all"
                   style={{
-                    backgroundColor: isActive ? 'var(--nw-admin-pressed)' : 'transparent',
-                    color: isActive ? 'var(--nw-admin-fg)' : 'var(--nw-admin-muted)',
+                    backgroundColor: isActive ? 'var(--nw-admin-surface-pressed)' : 'transparent',
+                    color: isActive ? 'var(--nw-admin-surface-fg)' : 'var(--nw-admin-surface-muted)',
                     border: isActive
-                      ? '1px solid var(--nw-admin-border-strong)'
+                      ? '1px solid var(--nw-admin-surface-border-strong)'
                       : '1px solid transparent',
                   }}
                   onMouseEnter={(e) => {
                     if (!isActive) {
-                      e.currentTarget.style.backgroundColor = 'var(--nw-admin-hover)'
-                      e.currentTarget.style.color = 'var(--nw-admin-fg)'
+                      e.currentTarget.style.backgroundColor = 'var(--nw-admin-surface-hover)'
+                      e.currentTarget.style.color = 'var(--nw-admin-surface-fg)'
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (!isActive) {
                       e.currentTarget.style.backgroundColor = 'transparent'
-                      e.currentTarget.style.color = 'var(--nw-admin-muted)'
+                      e.currentTarget.style.color = 'var(--nw-admin-surface-muted)'
                     }
                   }}
                 >

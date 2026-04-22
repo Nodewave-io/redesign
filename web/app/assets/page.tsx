@@ -6,7 +6,6 @@
 // here.
 
 import { useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { AdminSidebar } from '@/components/admin/sidebar'
@@ -30,9 +29,9 @@ export default function AssetsCatalog() {
 
   useEffect(() => {
     ;(async () => {
+      // Local single-user mode — auth shim always returns our stub user.
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) router.push('/admin')
-      else setUser(user)
+      setUser(user)
       setLoading(false)
     })()
   }, [router])
@@ -92,27 +91,15 @@ export default function AssetsCatalog() {
               Assets
             </h1>
             <div className="flex items-center gap-2">
-              <Link
-                href="/admin/media"
-                className="text-sm rounded-full transition-colors px-4 inline-flex items-center"
-                style={{
-                  color: 'var(--nw-admin-muted)',
-                  border: '1px solid var(--nw-admin-border-outer)',
-                  background: '#FFFFFF',
-                  height: 44,
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(15,18,17,0.03)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = '#FFFFFF' }}
-              >
-                Back to editor
-              </Link>
+              {/* Primary CTA — matches the landing's install pill shape.
+                  Sidebar handles navigation back to Posts now, so no
+                  redundant "Back to editor" button in the header. */}
               <button
                 onClick={() => setShowUpload(true)}
-                className="inline-flex items-center gap-2 px-4 text-sm font-medium rounded-full transition-colors"
+                className="inline-flex items-center gap-2 px-4 h-10 text-sm font-medium rounded-full transition-colors"
                 style={{
                   background: 'var(--nw-admin-primary)',
                   color: '#FFFFFF',
-                  height: 44,
                 }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--nw-admin-primary-hover)' }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--nw-admin-primary)' }}
@@ -127,22 +114,24 @@ export default function AssetsCatalog() {
 
           {/* Search left, filter right — pinned to the edges of the grid. */}
           <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+            {/* Dark search input — lives on the cream page. Focus ring
+                uses the orange accent so it matches the primary CTA. */}
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search name, description, tags…"
-              className="px-4 text-sm rounded-full outline-none transition-colors"
+              className="nw-dark-input px-4 text-sm rounded-full outline-none transition-colors"
               style={{
-                background: '#FFFFFF',
-                border: '1px solid rgba(15,18,17,0.12)',
-                color: '#0F1211',
-                height: 44,
+                background: 'var(--nw-admin-surface-inner)',
+                border: '1px solid var(--nw-admin-surface-border)',
+                color: 'var(--nw-admin-surface-fg)',
+                height: 40,
                 minWidth: 320,
                 flex: '0 1 420px',
               }}
-              onFocus={(e) => { e.currentTarget.style.borderColor = '#0A80FE' }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(15,18,17,0.12)' }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--nw-admin-accent)' }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--nw-admin-surface-border)' }}
             />
             <CategoryFilter filter={filter} onChange={setFilter} assets={assets} />
           </div>
@@ -848,7 +837,7 @@ function DropZone({
         aspectRatio: '4 / 3',
         background:
           'repeating-conic-gradient(rgba(15,18,17,0.04) 0% 25%, transparent 0% 50%) 50% / 24px 24px',
-        border: `1px dashed ${hovered ? '#0A80FE' : 'rgba(15,18,17,0.18)'}`,
+        border: `1px dashed ${hovered ? 'var(--nw-admin-accent)' : 'rgba(15,18,17,0.18)'}`,
       }}
     >
       {previewUrl ? (
@@ -918,7 +907,7 @@ function InputText({ value, onChange, placeholder }: { value: string; onChange: 
         color: '#0F1211',
         height: 44,
       }}
-      onFocus={(e) => { e.currentTarget.style.borderColor = '#0A80FE' }}
+      onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--nw-admin-accent)' }}
       onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(15,18,17,0.12)' }}
     />
   )
@@ -937,7 +926,7 @@ function InputTextArea({ value, onChange, placeholder, rows = 3 }: { value: stri
         border: '1px solid rgba(15,18,17,0.12)',
         color: '#0F1211',
       }}
-      onFocus={(e) => { e.currentTarget.style.borderColor = '#0A80FE' }}
+      onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--nw-admin-accent)' }}
       onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(15,18,17,0.12)' }}
     />
   )

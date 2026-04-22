@@ -15,7 +15,7 @@
 
 import { randomUUID } from 'node:crypto'
 import type Database from 'better-sqlite3'
-import { getDb } from './client.js'
+import { getDb } from './client'
 import type {
   Layer,
   MediaAsset,
@@ -25,7 +25,7 @@ import type {
   RevisionSource,
   Slide,
   Theme,
-} from './types.js'
+} from './types'
 
 // SQLite's `strftime('%Y-%m-%dT%H:%M:%fZ','now')` has ms precision —
 // not enough when a batch (or a test) fires two updates inside the

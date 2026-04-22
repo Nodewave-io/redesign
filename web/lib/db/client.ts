@@ -9,8 +9,8 @@
 // WAL mode is set in schema/0001_init.sql — let it alone here.
 
 import Database from 'better-sqlite3'
-import { DB_PATH, ensureDirs } from './paths.js'
-import { SCHEMA_SQL } from './schema.js'
+import { DB_PATH, ensureDirs } from './paths'
+import { SCHEMA_SQL } from './schema'
 
 let _db: Database.Database | null = null
 

@@ -29,9 +29,9 @@ export default function MediaEditorPage() {
 
   useEffect(() => {
     ;(async () => {
+      // Local single-user mode — auth shim always returns our stub user.
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) router.push('/admin')
-      else setUser(user)
+      setUser(user)
       setAuthLoading(false)
     })()
   }, [router])
@@ -186,7 +186,7 @@ export default function MediaEditorPage() {
       <div data-admin className="min-h-screen flex flex-col items-center justify-center gap-4">
         <p className="text-sm" style={{ color: 'var(--nw-admin-muted)' }}>Post not found.</p>
         <button
-          onClick={() => router.push('/admin/media')}
+          onClick={() => router.push('/')}
           className="text-sm underline"
           style={{ color: 'var(--nw-admin-primary)' }}
         >
@@ -197,15 +197,15 @@ export default function MediaEditorPage() {
   }
 
   return (
-    <div data-admin className="h-screen flex overflow-hidden">
+    // Full-viewport canvas layout (n8n / Figma / Miro pattern). Canvas
+    // fills the whole screen edge-to-edge so slides can pan under the
+    // overlays; the sidebar + right panel float on top as positioned
+    // cards. Dots live inside the canvas transform so they scale + pan
+    // with the slides (see Canvas.tsx).
+    <div data-admin className="h-screen relative overflow-hidden">
+      <Canvas />
       <AdminSidebar extra={<LeftPanel refreshKey={refreshKey} />} />
-
-      <main className="flex-1 md:ml-[252px] flex flex-col min-w-0">
-        <div className="flex-1 flex min-h-0 gap-4 p-4">
-          <Canvas />
-          <RightPanel exporting={exporting} onExport={onExport} />
-        </div>
-      </main>
+      <RightPanel exporting={exporting} onExport={onExport} />
     </div>
   )
 }

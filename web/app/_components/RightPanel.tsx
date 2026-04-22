@@ -17,9 +17,15 @@ export function RightPanel({
   const canExport = !!post.id && !dirty && post.slides.length > 0
 
   return (
+    // Floating overlay on the right edge. Mirrors AdminSidebar's
+    // positioning (fixed top-4 right-4 bottom-4) so the canvas below
+    // stays full-viewport and slides can pan under the panel.
     <aside
-      className="shrink-0 h-full rounded-3xl flex flex-col"
+      className="hidden md:flex fixed z-40 rounded-3xl flex-col"
       style={{
+        top: 16,
+        right: 16,
+        bottom: 16,
         width: 280,
         background: 'var(--nw-admin-surface-outer)',
         border: '1px solid var(--nw-admin-border-outer)',
@@ -150,19 +156,67 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 // same height, same font size/weight, same colors, same white fill.
 const inputClass = 'w-full px-4 text-sm font-normal rounded-full outline-none transition-colors'
 const inputStyle: React.CSSProperties = {
-  background: '#FFFFFF',
-  border: '1px solid rgba(15,18,17,0.12)',
-  color: '#0F1211',
+  background: 'var(--nw-admin-surface-inner)',
+  border: '1px solid var(--nw-admin-surface-border)',
+  color: 'var(--nw-admin-surface-fg)',
   height: 44,
 }
 
+// Focus = accent orange border. Matches the Assets page search + the
+// landing's primary-CTA color so every focusable field across the app
+// reads as the same family.
 const inputFocus = {
   onFocus: (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    e.currentTarget.style.borderColor = '#0A80FE'
+    e.currentTarget.style.borderColor = 'var(--nw-admin-accent)'
   },
   onBlur: (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    e.currentTarget.style.borderColor = 'rgba(15,18,17,0.12)'
+    e.currentTarget.style.borderColor = 'var(--nw-admin-surface-border)'
   },
+}
+
+// Slide-count field with a local draft so the user can clear + retype
+// without the value snapping back to `1` on every keystroke. Commits
+// on blur or Enter; reverts to the current post value if the draft
+// is empty, non-numeric, or outside the 1-20 range.
+function SlidesInput({ current }: { current: number }) {
+  const [draft, setDraft] = useState(String(current))
+  // Pull in external updates (undo, MCP write, etc.) so the field
+  // stays in sync when the value changes from outside this input.
+  useEffect(() => { setDraft(String(current)) }, [current])
+
+  const commit = () => {
+    const n = parseInt(draft, 10)
+    if (!Number.isFinite(n) || n < 1 || n > 20) {
+      setDraft(String(current))
+      return
+    }
+    if (n !== current) editor.setPageCount(n)
+    else setDraft(String(current))
+  }
+
+  return (
+    <input
+      type="number"
+      inputMode="numeric"
+      min={1}
+      max={20}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          commit()
+          e.currentTarget.blur()
+        } else if (e.key === 'Escape') {
+          setDraft(String(current))
+          e.currentTarget.blur()
+        }
+      }}
+      onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--nw-admin-accent)' }}
+      className={inputClass}
+      style={inputStyle}
+    />
+  )
 }
 
 function PostSettings() {
@@ -188,19 +242,7 @@ function PostSettings() {
       </Field>
 
       <Field label="Slides">
-        <input
-          type="number"
-          min={1}
-          max={20}
-          value={post.page_count}
-          onChange={(e) => {
-            const n = Math.max(1, Math.min(20, parseInt(e.target.value || '1', 10)))
-            editor.setPageCount(n)
-          }}
-          className={inputClass}
-          style={inputStyle}
-          {...inputFocus}
-        />
+        <SlidesInput current={post.page_count} />
       </Field>
 
     </div>
@@ -371,16 +413,19 @@ function NumberField({ value, onChange, min }: { value: number; onChange: (v: nu
 function ColorField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div className="flex items-center gap-2">
+      {/* `.nw-color-swatch` flattens the browser's default padding +
+          square swatch so the whole circle shows the picked color. */}
       <input
         type="color"
         value={toHex(value)}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded-full cursor-pointer shrink-0"
+        aria-label="Pick color"
+        className="nw-color-swatch rounded-full cursor-pointer shrink-0"
         style={{
           width: 44,
           height: 44,
-          border: '1px solid rgba(15,18,17,0.12)',
-          background: '#FFFFFF',
+          border: '1px solid var(--nw-admin-surface-border)',
+          background: 'var(--nw-admin-surface-inner)',
         }}
       />
       <input
@@ -597,7 +642,9 @@ function SaveStatus({
     dotColor = '#DC2626'
   } else if (saveState === 'saved' && lastSavedAt) {
     label = `Saved · ${relativeTime(now - lastSavedAt)}`
-    dotColor = '#16A34A'
+    // Accent orange instead of green — on-brand indicator that still
+    // reads as "positive done" against the muted-ink unsaved dot.
+    dotColor = 'var(--nw-admin-accent)'
   } else if (dirty) {
     label = 'Unsaved'
     dotColor = 'rgba(15,18,17,0.35)'

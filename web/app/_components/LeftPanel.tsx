@@ -124,7 +124,7 @@ function AssetsPanel() {
             color: '#0F1211',
             height: 44,
           }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = '#0A80FE' }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--nw-admin-accent)' }}
           onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(15,18,17,0.12)' }}
         >
           <option value="all">All categories</option>
@@ -149,7 +149,7 @@ function AssetsPanel() {
             color: '#0F1211',
             height: 44,
           }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = '#0A80FE' }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--nw-admin-accent)' }}
           onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(15,18,17,0.12)' }}
         />
       </div>
@@ -160,7 +160,7 @@ function AssetsPanel() {
         ) : shown.length === 0 ? (
           <p className="text-xs" style={{ color: 'rgba(15,18,17,0.4)' }}>
             No matches. Manage the library in{' '}
-            <Link href="/admin/media/assets" className="underline">
+            <Link href="/assets" className="underline">
               Assets
             </Link>
             .
@@ -199,7 +199,7 @@ function AssetsPanel() {
       {/* Link to the dedicated catalog — the real source of truth. */}
       <div className="pt-1">
         <Link
-          href="/admin/media/assets"
+          href="/assets"
           className="flex items-center justify-center gap-2 w-full text-sm rounded-full transition-colors"
           style={{
             background: '#FFFFFF',

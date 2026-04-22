@@ -1,94 +1,38 @@
 // Puppeteer-based PNG export.
 //
-// For each slide we:
-//   1. Issue a short-lived render key
-//   2. Navigate the headless browser to /admin/media/render/[id]
-//   3. Wait for window.__slideReady === true
-//   4. Screenshot #nw-slide-root as PNG
-//   5. Package all slides into a zip, upload to media-exports, return
-//      the zip to the client for direct download.
+// Local-mode flow per request:
+//   1. Fetch the post from SQLite.
+//   2. Launch a browser (auto-installs Chromium on first run — see
+//      lib/browser.ts).
+//   3. For each slide: open /render/[postId]?slide=i, wait for
+//      `window.__slideReady === true`, screenshot #nw-slide-root.
+//   4. Zip everything, stash a thumbnail in ~/.redesign/assets/, update
+//      the post row with the new thumbnail URL, return the zip blob.
 //
-// Puppeteer runs on Vercel via @sparticuz/chromium-min (Chrome shipped
-// as a download URL to keep the function bundle small). Locally we use
-// the full `puppeteer` package which bundles its own Chromium.
-//
-// Scale: we render at the native CANVAS size (1080×1350) with a
-// deviceScaleFactor of 2 so the output PNG is 2160×2700 — Instagram's
-// native resolution, Photoshop-ish quality.
+// No auth, no render keys — the server only binds to localhost.
 
 import { NextRequest, NextResponse } from 'next/server'
 import JSZip from 'jszip'
-import { createClient } from '@supabase/supabase-js'
-import { getSupabaseAdmin } from '@/lib/supabase'
-import { CANVAS, postFromRow, type MediaPostRow } from '@/app/admin/media/_lib/types'
-import { issueRenderKey, revokeRenderKey } from './render-key'
+import { CANVAS } from '@/lib/db/types'
+import { NotFoundError, getPost, updatePost } from '@/lib/db/repo'
+import { saveAssetBytesAtPath } from '@/lib/db/storage'
+import { launchBrowser } from '@/lib/browser'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-// Puppeteer cold start + N slides × ~3s each. Generous cap.
-export const maxDuration = 300
-
-async function verifyAuth(request: NextRequest): Promise<boolean> {
-  const authHeader = request.headers.get('authorization')
-  if (!authHeader) return false
-  const token = authHeader.replace('Bearer ', '')
-  if (!token) return false
-  try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    )
-    const { data: { user }, error } = await supabase.auth.getUser(token)
-    return !error && !!user
-  } catch {
-    return false
-  }
-}
-
-// ─── Browser lifecycle ────────────────────────────────────────────
-// Launch one Chrome per request (simpler than managing a pool) and
-// reuse a single page across slides to avoid re-parsing the bundle.
-
-async function launchBrowser() {
-  // In production (Vercel), use puppeteer-core + sparticuz chromium.
-  // In local dev, fall back to the full puppeteer package.
-  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
-    const { default: chromium } = await import('@sparticuz/chromium-min')
-    const puppeteer = await import('puppeteer-core')
-    // The -min variant needs a remote Chromium archive URL. Ship the
-    // matching pinned build; update when bumping the dep.
-    const remoteExecutablePath = `https://github.com/Sparticuz/chromium/releases/download/v140.0.0/chromium-v140.0.0-pack.x64.tar`
-    return puppeteer.default.launch({
-      args: chromium.args,
-      defaultViewport: { width: CANVAS.W, height: CANVAS.H, deviceScaleFactor: 2 },
-      executablePath: await chromium.executablePath(remoteExecutablePath),
-      headless: true,
-    })
-  }
-  const puppeteer = await import('puppeteer')
-  return puppeteer.default.launch({
-    headless: true,
-    defaultViewport: { width: CANVAS.W, height: CANVAS.H, deviceScaleFactor: 2 },
-  })
-}
+// Chromium install on first run + N slides × ~3s each. Generous cap.
+export const maxDuration = 600
 
 function baseUrl(request: NextRequest): string {
-  // Prefer explicitly configured URL for stability. In local dev,
-  // derive from the incoming request's host header.
-  const envUrl = process.env.NEXT_PUBLIC_SITE_URL
-  if (envUrl) return envUrl.replace(/\/$/, '')
+  // Derive from the incoming request's host header — all traffic is
+  // local so http + the same host Puppeteer sees on the next server is
+  // the right target.
   const host = request.headers.get('host')
   const proto = request.headers.get('x-forwarded-proto') ?? 'http'
   return `${proto}://${host}`
 }
 
-// ─── Handler ───────────────────────────────────────────────────────
-
 export async function POST(request: NextRequest) {
-  if (!(await verifyAuth(request))) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
   let body: { postId?: string }
   try {
     body = await request.json()
@@ -99,37 +43,32 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing postId' }, { status: 400 })
   }
 
-  const admin = getSupabaseAdmin()
-  const { data, error } = await admin
-    .from('media_posts')
-    .select('*')
-    .eq('id', body.postId)
-    .single()
-  if (error || !data) {
-    return NextResponse.json({ error: 'Post not found' }, { status: 404 })
+  let post
+  try {
+    post = getPost(body.postId)
+  } catch (err) {
+    if (err instanceof NotFoundError) {
+      return NextResponse.json({ error: 'Post not found' }, { status: 404 })
+    }
+    throw err
   }
-  const post = postFromRow(data as MediaPostRow)
 
-  const renderKey = issueRenderKey(post.id)
   const origin = baseUrl(request)
-
-  const browser = await launchBrowser()
+  const browser = await launchBrowser({
+    viewport: { width: CANVAS.W, height: CANVAS.H, deviceScaleFactor: 2 },
+  })
   const zip = new JSZip()
-  const uploads: { path: string; data: Buffer }[] = []
   let firstPng: Buffer | null = null
 
   try {
     const page = await browser.newPage()
-    // Fail fast if the render route throws so we don't hang.
     page.setDefaultNavigationTimeout(60_000)
     page.setDefaultTimeout(60_000)
 
     for (let i = 0; i < post.slides.length; i++) {
-      const url = `${origin}/admin/media/render/${post.id}?slide=${i}&key=${renderKey}`
+      const url = `${origin}/render/${post.id}?slide=${i}`
       await page.goto(url, { waitUntil: 'networkidle0' })
       await page.waitForFunction('window.__slideReady === true', { timeout: 45_000 })
-      // Screenshot the explicit element so any wrapper DOM doesn't
-      // bleed into the output.
       const el = await page.$('#nw-slide-root')
       if (!el) throw new Error(`Render route missing #nw-slide-root on slide ${i + 1}`)
       const shot = await el.screenshot({ type: 'png', omitBackground: false })
@@ -137,46 +76,33 @@ export async function POST(request: NextRequest) {
       if (!firstPng) firstPng = png
       const fileName = `slide-${String(i + 1).padStart(2, '0')}.png`
       zip.file(fileName, png)
-      uploads.push({ path: `${post.id}/${fileName}`, data: png })
     }
   } finally {
     await browser.close().catch(() => {})
-    revokeRenderKey(renderKey)
   }
 
   const zipBuf = await zip.generateAsync({ type: 'nodebuffer' })
 
-  // Background uploads so the user's zip download isn't delayed.
-  ;(async () => {
-    try {
-      for (const up of uploads) {
-        await admin.storage
-          .from('media-exports')
-          .upload(up.path, up.data, { contentType: 'image/png', upsert: true })
-      }
-      await admin.storage
-        .from('media-exports')
-        .upload(`${post.id}/post.zip`, zipBuf, {
-          contentType: 'application/zip',
-          upsert: true,
+  // Stash the first slide as the post's thumbnail under
+  // ~/.redesign/assets/thumbnails/<postId>.png. Fire-and-forget so the
+  // zip download isn't delayed.
+  if (firstPng) {
+    void (async () => {
+      try {
+        const saved = await saveAssetBytesAtPath(
+          firstPng!,
+          'image/png',
+          `thumbnails/${post.id}.png`,
+        )
+        // Bust caches on the editor grid by appending a timestamp
+        updatePost(post.id, {
+          thumbnail_url: `${saved.file_url}?v=${Date.now()}`,
         })
-      if (firstPng) {
-        const thumbPath = `${post.id}/thumb.png`
-        await admin.storage
-          .from('media-exports')
-          .upload(thumbPath, firstPng, { contentType: 'image/png', upsert: true })
-        const { data: pub } = admin.storage
-          .from('media-exports')
-          .getPublicUrl(thumbPath)
-        await admin
-          .from('media_posts')
-          .update({ thumbnail_url: `${pub.publicUrl}?v=${Date.now()}` })
-          .eq('id', post.id)
+      } catch (err) {
+        console.error('[redesign] thumbnail save failed', err)
       }
-    } catch (err) {
-      console.error('media export background upload failed', err)
-    }
-  })()
+    })()
+  }
 
   return new NextResponse(new Uint8Array(zipBuf), {
     status: 200,
