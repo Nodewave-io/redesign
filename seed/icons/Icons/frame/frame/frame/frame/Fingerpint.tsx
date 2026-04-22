@@ -1,0 +1,22 @@
+import { forwardRef, memo } from 'react'
+import type { SVGProps } from 'react'
+
+interface IconProps extends SVGProps<SVGSVGElement> {
+  /** Icon size (default: 24) */
+  size?: number
+  /** Icon color (default: currentColor) */
+  color?: string
+}
+
+const FingerpintInner = forwardRef<SVGSVGElement, IconProps>(
+  function Fingerpint({ size = 24, color = 'currentColor', ...props }: IconProps, ref) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={color} {...props}>
+        <path d="M8.15801 6.50059C7.37399 7.13552 6.74113 7.94118 6.30641 8.8578C5.87168 9.77444 5.64625 10.7785 5.64684 11.7955C5.64997 14.2756 5.08714 16.723 4.00233 18.9462M13.3587 22.8002C14.9614 19.3595 16.0155 13.3498 15.779 11.7955C15.4864 9.87305 14.5653 8.33689 12.3436 8.33689C9.79791 8.33689 9.0222 10.9235 9.0222 12.0224M22.175 18.3065C22.5895 16.1616 22.7988 13.9811 22.7999 11.7955C22.7999 8.98545 21.6982 6.29046 19.7372 4.30347C17.7762 2.31647 15.1165 1.2002 12.3432 1.2002C9.56991 1.2002 6.9102 2.31647 4.94919 4.30347C2.98818 6.29046 1.8865 8.98539 1.8865 11.7954C1.8876 13.189 1.65546 14.5727 1.19995 15.8875M6.56599 21.2389C7.62591 19.396 8.37957 17.3891 8.7968 15.2984M18.8152 15.5022C18.967 14.2729 19.042 13.034 19.0395 11.7952C19.0395 9.99576 18.334 8.27005 17.0782 6.99766C15.8225 5.7253 14.1194 5.01036 12.3436 5.01036C12.0639 5.00841 11.7843 5.0246 11.5066 5.05884M18.1191 19.2075C17.9422 19.8886 17.7415 20.5705 17.5295 21.2389M9.81188 22.2965C11.1456 19.8873 12.3487 15.8954 12.3487 11.8323" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    )
+  }
+)
+
+export const Fingerpint = memo(FingerpintInner)
+Fingerpint.displayName = 'Fingerpint'

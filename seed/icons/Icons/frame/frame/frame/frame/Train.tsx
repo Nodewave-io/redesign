@@ -1,0 +1,22 @@
+import { forwardRef, memo } from 'react'
+import type { SVGProps } from 'react'
+
+interface IconProps extends SVGProps<SVGSVGElement> {
+  /** Icon size (default: 24) */
+  size?: number
+  /** Icon color (default: currentColor) */
+  color?: string
+}
+
+const TrainInner = forwardRef<SVGSVGElement, IconProps>(
+  function Train({ size = 24, color = 'currentColor', ...props }: IconProps, ref) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={color} {...props}>
+        <path d="M6.0001 20.4L4.2001 22.7999M20.3186 22.7796L18.4663 20.4198M8.40057 16.8721V16.8M15.6006 16.8721V16.8M4.8001 13.8H19.8001M12.0001 4.79995V13.2M9.0001 1.19995H15.0001M6.5648 20.4H17.4354C19.0728 20.4 20.4001 19.0726 20.4001 17.4352V7.76466C20.4001 6.1273 19.0728 4.79995 17.4354 4.79995H6.5648C4.92744 4.79995 3.6001 6.1273 3.6001 7.76466V17.4352C3.6001 19.0726 4.92744 20.4 6.5648 20.4Z" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    )
+  }
+)
+
+export const Train = memo(TrainInner)
+Train.displayName = 'Train'

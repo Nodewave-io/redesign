@@ -1,0 +1,22 @@
+import { forwardRef, memo } from 'react'
+import type { SVGProps } from 'react'
+
+interface IconProps extends SVGProps<SVGSVGElement> {
+  /** Icon size (default: 24) */
+  size?: number
+  /** Icon color (default: currentColor) */
+  color?: string
+}
+
+const HorizontalChart3Inner = forwardRef<SVGSVGElement, IconProps>(
+  function HorizontalChart3({ size = 24, color = 'currentColor', ...props }: IconProps, ref) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={color} {...props}>
+        <path d="M2.91211 14.3547H14.2901M2.91211 14.3547L14.2317 14.3536C14.2513 14.3536 14.2708 14.354 14.2901 14.3547M2.91211 14.3547L2.91211 18.2399C2.91211 18.7701 3.44937 19.1999 4.11211 19.1999H14.2321C14.8949 19.1999 15.4321 18.7701 15.4321 18.2399V15.3136C15.4321 14.799 14.9259 14.3789 14.2901 14.3547M2.91211 14.3547L2.91211 9.50813M14.2901 14.3547H19.8881C20.5509 14.3547 21.0881 13.9249 21.0881 13.3947V10.4681C21.0881 9.93793 20.5509 9.50813 19.8881 9.50813M2.91211 9.50813H19.8881M2.91211 9.50813L2.91211 5.7599C2.91211 5.22971 3.44937 4.7999 4.11211 4.7999L8.91211 4.7999C9.57485 4.7999 10.1121 5.22971 10.1121 5.7599V8.54813C10.1121 9.07832 9.57485 9.50813 8.91211 9.50813L19.8881 9.50813M2.91211 21.5999V2.3999" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    )
+  }
+)
+
+export const HorizontalChart3 = memo(HorizontalChart3Inner)
+HorizontalChart3.displayName = 'HorizontalChart3'

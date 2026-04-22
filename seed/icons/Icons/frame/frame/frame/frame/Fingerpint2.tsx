@@ -1,0 +1,22 @@
+import { forwardRef, memo } from 'react'
+import type { SVGProps } from 'react'
+
+interface IconProps extends SVGProps<SVGSVGElement> {
+  /** Icon size (default: 24) */
+  size?: number
+  /** Icon color (default: currentColor) */
+  color?: string
+}
+
+const Fingerpint2Inner = forwardRef<SVGSVGElement, IconProps>(
+  function Fingerpint2({ size = 24, color = 'currentColor', ...props }: IconProps, ref) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={color} {...props}>
+        <path d="M5.72979 6.25876C4.98693 7.45395 4.60011 8.81562 4.60011 10.2029C4.60011 10.4804 4.65725 12.2561 4.65725 12.2561C4.65725 13.5921 4.29681 14.9068 3.60669 16.0679M16.2067 10.2029C16.2023 8.39303 15.0067 6.25876 12.5253 6.25876C10.0439 6.25876 8.59115 8.29476 8.58676 10.1004V11.1931C8.58676 13.7926 8.28757 16.2813 6.67875 18.36M9.53622 21.5999C11.4967 18.8595 12.5472 15.6026 12.5472 12.2646V10.062M14.2946 20.585C15.0067 19.7999 16.2067 16.1999 16.2067 13.7999M19.4265 18.4838C20.077 16.3623 20.3935 12.2517 20.3935 10.0406C20.3935 5.83181 16.8858 2.41271 12.5472 2.3999H12.5253C11.145 2.3999 9.78677 2.75419 8.58676 3.42435" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    )
+  }
+)
+
+export const Fingerpint2 = memo(Fingerpint2Inner)
+Fingerpint2.displayName = 'Fingerpint2'

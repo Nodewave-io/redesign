@@ -1,0 +1,22 @@
+import { forwardRef, memo } from 'react'
+import type { SVGProps } from 'react'
+
+interface IconProps extends SVGProps<SVGSVGElement> {
+  /** Icon size (default: 24) */
+  size?: number
+  /** Icon color (default: currentColor) */
+  color?: string
+}
+
+const Map3Inner = forwardRef<SVGSVGElement, IconProps>(
+  function Map3({ size = 24, color = 'currentColor', ...props }: IconProps, ref) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={color} {...props}>
+        <path d="M3.22915 5.66667L18.4297 20.5065M3.22915 5.66667C3.7947 5.021 4.63942 4.61111 5.58316 4.61111H10.7218M3.22915 5.66667C2.77429 6.18596 2.5 6.85777 2.5 7.5915V18.5196C2.5 20.1656 3.88038 21.5 5.58316 21.5H16.8881C18.5909 21.5 19.9713 20.1656 19.9713 18.5196V14.049M10.7218 14.049L4.04158 20.5065M18.0057 5.87778V5.81428M21.5 5.80435C21.5 8.00725 18.0057 10.9444 18.0057 10.9444C18.0057 10.9444 14.5115 8.00725 14.5115 5.80435C14.5115 3.97941 16.0759 2.5 18.0057 2.5C19.9356 2.5 21.5 3.97941 21.5 5.80435Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    )
+  }
+)
+
+export const Map3 = memo(Map3Inner)
+Map3.displayName = 'Map3'

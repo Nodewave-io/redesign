@@ -1,0 +1,22 @@
+import { forwardRef, memo } from 'react'
+import type { SVGProps } from 'react'
+
+interface IconProps extends SVGProps<SVGSVGElement> {
+  /** Icon size (default: 24) */
+  size?: number
+  /** Icon color (default: currentColor) */
+  color?: string
+}
+
+const Data2Inner = forwardRef<SVGSVGElement, IconProps>(
+  function Data2({ size = 24, color = 'currentColor', ...props }: IconProps, ref) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={color} {...props}>
+        <path d="M17.7601 12C17.7601 13.0604 18.6197 13.92 19.6801 13.92C20.7405 13.92 21.6001 13.0604 21.6001 12C21.6001 10.9396 20.7405 10.08 19.6801 10.08C18.6197 10.08 17.7601 10.9396 17.7601 12ZM17.7601 12H12.6001M17.7601 4.32002C17.7601 5.38041 18.6197 6.24002 19.6801 6.24002C20.7405 6.24002 21.6001 5.38041 21.6001 4.32002C21.6001 3.25964 20.7405 2.40003 19.6801 2.40003C18.6197 2.40003 17.7601 3.25964 17.7601 4.32002ZM17.7601 4.32002H6.59966M17.7601 19.68C17.7601 20.7404 18.6197 21.6 19.6801 21.6C20.7405 21.6 21.6001 20.7404 21.6001 19.68C21.6001 18.6196 20.7405 17.76 19.6801 17.76C18.6197 17.76 17.7601 18.6196 17.7601 19.68ZM17.7601 19.68H12.2401C11.7099 19.68 11.2801 19.2502 11.2801 18.72V5.28003M6.23966 4.32002C6.23966 5.38041 5.38005 6.24002 4.31966 6.24002C3.25927 6.24002 2.39966 5.38041 2.39966 4.32002C2.39966 3.25964 3.25927 2.40002 4.31966 2.40002C5.38005 2.40002 6.23966 3.25964 6.23966 4.32002Z" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    )
+  }
+)
+
+export const Data2 = memo(Data2Inner)
+Data2.displayName = 'Data2'

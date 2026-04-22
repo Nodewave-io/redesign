@@ -7,10 +7,10 @@
   "homepage": "https://nodewave.io/redesign",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Nodewave/redesign.git"
+    "url": "git+https://github.com/Nodewave-io/redesign.git"
   },
   "bugs": {
-    "url": "https://github.com/Nodewave/redesign/issues"
+    "url": "https://github.com/Nodewave-io/redesign/issues"
   },
   "type": "module",
   "engines": {

@@ -442,28 +442,35 @@ export function Canvas() {
         </div>
       </div>
 
-      {/* Carousel arrows */}
+      {/* Carousel arrows — anchored near the slide edges, not the
+          viewport edges. Now that Canvas fills the full viewport (with
+          sidebar/right panel overlaying), pinning arrows to left:16 /
+          right:16 buried them under the panels. Pull them next to the
+          actual slide by offsetting from horizontal center by half the
+          rendered slide width plus a gap. */}
       {viewMode === 'carousel' && post.slides.length > 1 && (
         <>
           <ArrowButton
             side="left"
             disabled={currentSlide === 0}
+            scale={scale}
             onClick={() => editor.setCurrentSlide(currentSlide - 1)}
           />
           <ArrowButton
             side="right"
             disabled={currentSlide === post.slides.length - 1}
+            scale={scale}
             onClick={() => editor.setCurrentSlide(currentSlide + 1)}
           />
-          {/* White pill behind the dots so they stay visible on dark
-              slides. Matches the admin floating-toggle shape used by
-              Stitched/Carousel above. */}
+          {/* Pagination dots — cream pill so they stay visible on dark
+              slides. Uses the same surface tokens as every other
+              floating card in the app. */}
           <div
             className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full"
             style={{
-              background: '#FFFFFF',
-              border: '1px solid rgba(15,18,17,0.08)',
-              boxShadow: '0 2px 8px rgba(15,18,17,0.06)',
+              background: 'var(--nw-admin-surface-inner)',
+              border: '1px solid var(--nw-admin-surface-border)',
+              boxShadow: '0 2px 8px rgba(24,18,15,0.06)',
               padding: '8px 12px',
             }}
           >
@@ -475,8 +482,8 @@ export function Canvas() {
                 style={{
                   background:
                     i === currentSlide
-                      ? 'rgba(15,18,17,0.8)'
-                      : 'rgba(15,18,17,0.2)',
+                      ? 'var(--nw-admin-fg)'
+                      : 'var(--nw-admin-muted-soft)',
                   width: i === currentSlide ? 20 : 8,
                 }}
                 aria-label={`Go to slide ${i + 1}`}
@@ -497,11 +504,11 @@ export function Canvas() {
         <div
           className="relative flex items-center rounded-full pointer-events-auto"
           style={{
-            background: '#FFFFFF',
-            border: '1px solid rgba(15,18,17,0.08)',
+            background: 'var(--nw-admin-surface-inner)',
+            border: '1px solid rgba(24,18,15,0.08)',
             padding: 4,
             height: 44,
-            boxShadow: '0 2px 8px rgba(15,18,17,0.06)',
+            boxShadow: '0 2px 8px rgba(24,18,15,0.06)',
           }}
         >
           <div
@@ -511,8 +518,8 @@ export function Canvas() {
               bottom: 4,
               left: viewMode === 'strip' ? 4 : 'calc(50% + 0px)',
               width: 'calc(50% - 4px)',
-              background: 'rgba(15,18,17,0.08)',
-              border: '1px solid rgba(15,18,17,0.18)',
+              background: 'rgba(24,18,15,0.08)',
+              border: '1px solid rgba(24,18,15,0.18)',
               transition: 'left 250ms cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           />
@@ -526,7 +533,7 @@ export function Canvas() {
             }}
             className="relative z-10 text-sm rounded-full px-4"
             style={{
-              color: viewMode === 'strip' ? '#0F1211' : 'rgba(15,18,17,0.55)',
+              color: viewMode === 'strip' ? 'var(--nw-admin-fg)' : 'rgba(24,18,15,0.55)',
               fontWeight: viewMode === 'strip' ? 500 : 400,
               height: '100%',
               minWidth: 100,
@@ -539,7 +546,7 @@ export function Canvas() {
             onClick={() => editor.setViewMode('carousel')}
             className="relative z-10 text-sm rounded-full px-4"
             style={{
-              color: viewMode === 'carousel' ? '#0F1211' : 'rgba(15,18,17,0.55)',
+              color: viewMode === 'carousel' ? 'var(--nw-admin-fg)' : 'rgba(24,18,15,0.55)',
               fontWeight: viewMode === 'carousel' ? 500 : 400,
               height: '100%',
               minWidth: 100,
@@ -596,8 +603,8 @@ function SlideFrame({
         left: slideIndex * W + slideIndex * STRIP_GAP,
         width: W,
         height: H,
-        boxShadow: '0 1px 0 rgba(15,18,17,0.04)',
-        borderRight: isLast ? 'none' : '1px dashed rgba(15,18,17,0.12)',
+        boxShadow: '0 1px 0 rgba(24,18,15,0.04)',
+        borderRight: isLast ? 'none' : '1px dashed rgba(24,18,15,0.12)',
       }}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) editor.select(null)
@@ -693,7 +700,7 @@ function ResizeHandles({ layer, scale }: { layer: Layer; scale: number }) {
           style={{
             width: 10,
             height: 10,
-            background: '#FFFFFF',
+            background: 'var(--nw-admin-surface-inner)',
             border: '1.5px solid var(--nw-admin-accent)',
             borderRadius: 2,
             ...h.style,
@@ -819,30 +826,49 @@ function startResize(
 function ArrowButton({
   side,
   disabled,
+  scale,
   onClick,
 }: {
   side: 'left' | 'right'
   disabled?: boolean
+  // Current canvas scale — the slide width at render is CANVAS.W *
+  // scale, so half of that is how far the slide edge sits from the
+  // viewport center. We anchor the arrow just beyond that edge.
+  scale: number
   onClick: () => void
 }) {
+  const ARROW = 44
+  const GAP = 16
+  const halfSlide = (CANVAS.W * scale) / 2
+  // Left arrow's right edge sits `GAP` left of the slide's left edge.
+  // Right arrow's left edge sits `GAP` right of the slide's right edge.
+  const offset = halfSlide + GAP
+  const positional: React.CSSProperties =
+    side === 'left'
+      ? { left: `calc(50% - ${offset + ARROW}px)` }
+      : { left: `calc(50% + ${offset}px)` }
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       aria-label={side === 'left' ? 'Previous slide' : 'Next slide'}
-      className="absolute top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full transition-all disabled:opacity-30"
+      className="absolute top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full transition-all"
       style={{
-        [side]: 16,
-        width: 44,
-        height: 44,
-        background: '#FFFFFF',
-        border: '1px solid rgba(15,18,17,0.1)',
-        boxShadow: '0 2px 8px rgba(15,18,17,0.06)',
-        color: '#0F1211',
-      } as React.CSSProperties}
+        ...positional,
+        width: ARROW,
+        height: ARROW,
+        background: 'var(--nw-admin-surface-inner)',
+        border: '1px solid var(--nw-admin-surface-border)',
+        boxShadow: '0 2px 8px rgba(24,18,15,0.06)',
+        // Orange arrow when clickable, muted ink when you can't scroll
+        // further that direction — clear affordance without hiding
+        // the button entirely.
+        color: disabled ? 'var(--nw-admin-muted-soft)' : 'var(--nw-admin-accent)',
+        cursor: disabled ? 'default' : 'pointer',
+      }}
     >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         {side === 'left' ? (
           <path d="m15 18-6-6 6-6" />
         ) : (

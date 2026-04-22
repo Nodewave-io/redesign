@@ -24,6 +24,7 @@ import { fileURLToPath } from 'node:url'
 import { REDESIGN_HOME, DB_PATH, ensureDirs } from './db/paths.js'
 import { closeDb, getDb } from './db/client.js'
 import { writeConfig } from './config.js'
+import { seedIcons } from './seed.js'
 
 const VERSION = '0.1.0-pre'
 
@@ -54,6 +55,8 @@ async function main(argv: string[]): Promise<number> {
       return runStart(rest)
     case 'init':
       return runInit()
+    case 'seed':
+      return runSeed(rest)
     default:
       console.error(`unknown command: ${cmd}`)
       printHelp()
@@ -74,6 +77,8 @@ function printHelp(): void {
       '  mcp               Run the stdio MCP server (invoked by Claude Code)',
       '  mcp-config        Print the .mcp.json snippet to paste into ~/.claude/mcp.json',
       '  init              Create ~/.redesign and bootstrap the SQLite schema',
+      '  seed [dir]        Import a folder of TSX icons into the asset library',
+      '                    (defaults to ./seed/icons; pass --replace to wipe first)',
       '  doctor            Check your environment is good to go',
       '  reset [--yes]     Wipe ~/.redesign (prompts unless --yes)',
       '  version           Print the version',
@@ -166,6 +171,69 @@ async function runReset(skipConfirm: boolean): Promise<number> {
   rmSync(REDESIGN_HOME, { recursive: true, force: true })
   console.log(`Deleted ${REDESIGN_HOME}`)
   return 0
+}
+
+async function runSeed(args: string[]): Promise<number> {
+  const replace = args.includes('--replace') || args.includes('-r')
+  const positional = args.filter((a) => !a.startsWith('-'))
+  // Default to ./seed/icons in the package root (works both in dev
+  // and in the published tarball where seed/ ships alongside dist/).
+  const here = dirname(fileURLToPath(import.meta.url))
+  const defaultRoot = locateSeedDir(here)
+  const root = positional[0] ?? defaultRoot
+  if (!root || !existsSync(root)) {
+    console.error(`[redesign] seed dir not found: ${root ?? '(auto-detect failed)'}`)
+    console.error('Pass a path, e.g. `redesign seed ~/Downloads/my-icons`.')
+    return 1
+  }
+
+  // Bootstrap DB before importing so first-run users don't hit a
+  // schema-missing error.
+  getDb()
+  let lastPct = -1
+  try {
+    const res = seedIcons({
+      root,
+      replace,
+      onProgress: (kind, name, i, total) => {
+        const pct = Math.floor((i / total) * 100)
+        if (pct !== lastPct && pct % 10 === 0) {
+          console.error(`[redesign] ${pct}% — ${i}/${total} (${name})`)
+          lastPct = pct
+        }
+        if (kind === 'replaced') {
+          // Replacements are rare; worth calling out.
+          console.error(`[redesign] replaced ${name}`)
+        }
+      },
+    })
+    console.error('')
+    console.error(`[redesign] imported ${res.added} icon(s) from ${root}`)
+    if (res.skipped) console.error(`[redesign] skipped ${res.skipped} (already in library; pass --replace to overwrite)`)
+    if (res.replaced) console.error(`[redesign] replaced ${res.replaced}`)
+    return 0
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`[redesign] seed failed: ${msg}`)
+    return 1
+  } finally {
+    closeDb()
+  }
+}
+
+// Walk up from the CLI file to find a sibling `seed/icons` folder.
+// Layout in dev: <root>/src/cli.ts + <root>/seed/icons/.
+// Layout in tarball: <root>/dist/cli.js + <root>/seed/icons/.
+function locateSeedDir(start: string): string | null {
+  let dir = start
+  for (let i = 0; i < 5; i++) {
+    const candidate = join(dir, 'seed', 'icons')
+    if (existsSync(candidate)) return candidate
+    const parent = dirname(dir)
+    if (parent === dir) break
+    dir = parent
+  }
+  return null
 }
 
 async function runInit(): Promise<number> {

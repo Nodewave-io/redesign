@@ -1,0 +1,22 @@
+import { forwardRef, memo } from 'react'
+import type { SVGProps } from 'react'
+
+interface IconProps extends SVGProps<SVGSVGElement> {
+  /** Icon size (default: 24) */
+  size?: number
+  /** Icon color (default: currentColor) */
+  color?: string
+}
+
+const FileQuestion2Inner = forwardRef<SVGSVGElement, IconProps>(
+  function FileQuestion2({ size = 24, color = 'currentColor', ...props }: IconProps, ref) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={color} {...props}>
+        <path d="M11.9999 21.5549H5.99984C4.67436 21.5549 3.59984 20.4804 3.59985 19.1549L3.59995 4.75497C3.59995 3.42949 4.67447 2.35498 5.99995 2.35498H16.8002C18.1257 2.35498 19.2002 3.4295 19.2002 4.75498V8.95498M15.6002 16.0126C15.6002 14.7159 16.6747 13.6647 18.0002 13.6647C19.3257 13.6647 20.4002 14.7159 20.4002 16.0126C20.4002 17.3093 19.3257 18.3604 18.0002 18.3604M18.0002 21.6452V21.5549M7.80023 7.15498H15.0002M7.80023 10.755H15.0002M7.80023 14.355H11.4002" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    )
+  }
+)
+
+export const FileQuestion2 = memo(FileQuestion2Inner)
+FileQuestion2.displayName = 'FileQuestion2'

@@ -1,0 +1,22 @@
+import { forwardRef, memo } from 'react'
+import type { SVGProps } from 'react'
+
+interface IconProps extends SVGProps<SVGSVGElement> {
+  /** Icon size (default: 24) */
+  size?: number
+  /** Icon color (default: currentColor) */
+  color?: string
+}
+
+const ImageDownInner = forwardRef<SVGSVGElement, IconProps>(
+  function ImageDown({ size = 24, color = 'currentColor', ...props }: IconProps, ref) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={color} {...props}>
+        <path d="M6.375 21L15.9375 12L20.4375 16.5M6.375 21H17.625C19.489 21 21 19.489 21 17.625V12M6.375 21C4.51104 21 3 19.489 3 17.625V6.375C3 4.51104 4.51104 3 6.375 3H13.6875M21 6.33509L18.6991 8.625M18.6991 8.625L16.5 6.4386M18.6991 8.625V3M9.75 8.0625C9.75 8.99448 8.99448 9.75 8.0625 9.75C7.13052 9.75 6.375 8.99448 6.375 8.0625C6.375 7.13052 7.13052 6.375 8.0625 6.375C8.99448 6.375 9.75 7.13052 9.75 8.0625Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    )
+  }
+)
+
+export const ImageDown = memo(ImageDownInner)
+ImageDown.displayName = 'ImageDown'

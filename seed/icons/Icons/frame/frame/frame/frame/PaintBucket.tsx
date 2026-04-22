@@ -1,0 +1,22 @@
+import { forwardRef, memo } from 'react'
+import type { SVGProps } from 'react'
+
+interface IconProps extends SVGProps<SVGSVGElement> {
+  /** Icon size (default: 24) */
+  size?: number
+  /** Icon color (default: currentColor) */
+  color?: string
+}
+
+const PaintBucketInner = forwardRef<SVGSVGElement, IconProps>(
+  function PaintBucket({ size = 24, color = 'currentColor', ...props }: IconProps, ref) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={color} {...props}>
+        <path d="M10.9499 2.40002L11.4627 2.91288M3.6009 13.0394H20.5971M11.4627 2.91288L12.2068 3.657C12.2068 3.657 4.45188 11.2676 4.29431 11.4252C3.3687 12.3508 3.36869 13.8515 4.29431 14.7771L10.423 20.9058C11.3486 21.8314 12.8493 21.8314 13.775 20.9058L19.9037 14.7771C20.7892 13.8916 20.8276 12.4798 20.0189 11.5487C19.9759 11.4543 19.9157 11.3658 19.838 11.2882L11.4627 2.91288Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    )
+  }
+)
+
+export const PaintBucket = memo(PaintBucketInner)
+PaintBucket.displayName = 'PaintBucket'

@@ -1,0 +1,22 @@
+import { forwardRef, memo } from 'react'
+import type { SVGProps } from 'react'
+
+interface IconProps extends SVGProps<SVGSVGElement> {
+  /** Icon size (default: 24) */
+  size?: number
+  /** Icon color (default: currentColor) */
+  color?: string
+}
+
+const CoinsInner = forwardRef<SVGSVGElement, IconProps>(
+  function Coins({ size = 24, color = 'currentColor', ...props }: IconProps, ref) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={color} {...props}>
+        <path d="M9.49332 17.8821C9.09253 17.9594 8.67788 18 8.25334 18C4.79972 18 2 15.3137 2 12C2 8.68629 4.79972 6 8.25334 6C8.67788 6 9.09253 6.04059 9.49332 6.11795M22 12C22 15.3137 19.2003 18 15.7467 18C12.293 18 9.49332 15.3137 9.49332 12C9.49332 8.68629 12.293 6 15.7467 6C19.2003 6 22 8.68629 22 12Z" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    )
+  }
+)
+
+export const Coins = memo(CoinsInner)
+Coins.displayName = 'Coins'

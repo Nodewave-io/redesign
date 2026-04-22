@@ -1,0 +1,22 @@
+import { forwardRef, memo } from 'react'
+import type { SVGProps } from 'react'
+
+interface IconProps extends SVGProps<SVGSVGElement> {
+  /** Icon size (default: 24) */
+  size?: number
+  /** Icon color (default: currentColor) */
+  color?: string
+}
+
+const BellOffInner = forwardRef<SVGSVGElement, IconProps>(
+  function BellOff({ size = 24, color = 'currentColor', ...props }: IconProps, ref) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={color} {...props}>
+        <path d="M20 16.3111C19.4287 15.482 18.8738 14.2598 18.8738 12.7859L18.8984 10.77C18.8984 6.77112 15.8322 3.52942 12.05 3.52942C11.6431 3.52942 11.2446 3.56748 10.8576 3.64044M9.36666 20.1176C10.0788 20.6663 11.0191 21 12.05 21C13.0809 21 14.0212 20.6663 14.7333 20.1176M15.8067 17.2941H4.51081C4.08656 17.2941 3.84961 16.6512 4.10623 16.2941C4.70172 15.4653 5.27648 14.2497 5.27648 12.7859L5.30104 10.6648C5.30104 8.96416 5.86379 7.40245 6.80316 6.17649M17.9533 19.9413L5.61 3" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    )
+  }
+)
+
+export const BellOff = memo(BellOffInner)
+BellOff.displayName = 'BellOff'

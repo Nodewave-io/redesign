@@ -1,0 +1,22 @@
+import { forwardRef, memo } from 'react'
+import type { SVGProps } from 'react'
+
+interface IconProps extends SVGProps<SVGSVGElement> {
+  /** Icon size (default: 24) */
+  size?: number
+  /** Icon color (default: currentColor) */
+  color?: string
+}
+
+const PauseInner = forwardRef<SVGSVGElement, IconProps>(
+  function Pause({ size = 24, color = 'currentColor', ...props }: IconProps, ref) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={color} {...props}>
+        <path d="M9.5999 15.5999V8.3999M14.3999 15.5999V8.3999M5.9999 21.5999H17.9999C19.9881 21.5999 21.5999 19.9881 21.5999 17.9999V5.9999C21.5999 4.01168 19.9881 2.3999 17.9999 2.3999H5.9999C4.01168 2.3999 2.3999 4.01168 2.3999 5.9999V17.9999C2.3999 19.9881 4.01168 21.5999 5.9999 21.5999Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    )
+  }
+)
+
+export const Pause = memo(PauseInner)
+Pause.displayName = 'Pause'

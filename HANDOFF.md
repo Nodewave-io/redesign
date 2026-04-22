@@ -170,7 +170,7 @@ is a stub — it prints a friendly "not yet available" message. Once
 - [ ] `npm pack` dry-run, check tarball contents
 - [ ] Publish as `@nodewave/redesign@0.1.0` (scope already locked in
       `package.json`)
-- [ ] Mirror repo to `github.com/Nodewave/redesign`
+- [ ] Mirror repo to `github.com/Nodewave-io/redesign`
 
 ## What's NEW in this round (vs. the previous handoff)
 

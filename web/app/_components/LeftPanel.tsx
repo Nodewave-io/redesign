@@ -119,13 +119,13 @@ function AssetsPanel() {
           onChange={(e) => setCategory(e.target.value)}
           className="w-full px-4 text-sm rounded-full outline-none transition-colors"
           style={{
-            background: '#FFFFFF',
-            border: '1px solid rgba(15,18,17,0.12)',
-            color: '#0F1211',
+            background: 'var(--nw-admin-surface-inner)',
+            border: '1px solid rgba(24,18,15,0.12)',
+            color: 'var(--nw-admin-fg)',
             height: 44,
           }}
           onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--nw-admin-accent)' }}
-          onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(15,18,17,0.12)' }}
+          onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(24,18,15,0.12)' }}
         >
           <option value="all">All categories</option>
           {SUGGESTED_CATEGORIES.map((c) => (
@@ -144,21 +144,21 @@ function AssetsPanel() {
           placeholder="Search…"
           className="w-full px-4 text-sm rounded-full outline-none transition-colors"
           style={{
-            background: '#FFFFFF',
-            border: '1px solid rgba(15,18,17,0.12)',
-            color: '#0F1211',
+            background: 'var(--nw-admin-surface-inner)',
+            border: '1px solid rgba(24,18,15,0.12)',
+            color: 'var(--nw-admin-fg)',
             height: 44,
           }}
           onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--nw-admin-accent)' }}
-          onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(15,18,17,0.12)' }}
+          onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(24,18,15,0.12)' }}
         />
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto pb-3">
         {loading ? (
-          <p className="text-xs" style={{ color: 'rgba(15,18,17,0.4)' }}>Loading…</p>
+          <p className="text-xs" style={{ color: 'rgba(24,18,15,0.4)' }}>Loading…</p>
         ) : shown.length === 0 ? (
-          <p className="text-xs" style={{ color: 'rgba(15,18,17,0.4)' }}>
+          <p className="text-xs" style={{ color: 'rgba(24,18,15,0.4)' }}>
             No matches. Manage the library in{' '}
             <Link href="/assets" className="underline">
               Assets
@@ -174,8 +174,8 @@ function AssetsPanel() {
                 className="group relative aspect-square rounded-xl overflow-hidden transition-all"
                 style={{
                   background:
-                    'repeating-conic-gradient(rgba(15,18,17,0.04) 0% 25%, transparent 0% 50%) 50% / 12px 12px',
-                  border: '1px solid rgba(15,18,17,0.08)',
+                    'repeating-conic-gradient(rgba(24,18,15,0.04) 0% 25%, transparent 0% 50%) 50% / 12px 12px',
+                  border: '1px solid rgba(24,18,15,0.08)',
                 }}
                 title={a.description || a.name}
               >
@@ -202,13 +202,13 @@ function AssetsPanel() {
           href="/assets"
           className="flex items-center justify-center gap-2 w-full text-sm rounded-full transition-colors"
           style={{
-            background: '#FFFFFF',
-            border: '1px solid rgba(15,18,17,0.12)',
-            color: '#0F1211',
+            background: 'var(--nw-admin-surface-inner)',
+            border: '1px solid rgba(24,18,15,0.12)',
+            color: 'var(--nw-admin-fg)',
             height: 44,
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(15,18,17,0.03)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = '#FFFFFF' }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(24,18,15,0.03)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--nw-admin-surface-inner)' }}
         >
           Manage library
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

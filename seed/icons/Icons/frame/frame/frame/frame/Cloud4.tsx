@@ -1,0 +1,22 @@
+import { forwardRef, memo } from 'react'
+import type { SVGProps } from 'react'
+
+interface IconProps extends SVGProps<SVGSVGElement> {
+  /** Icon size (default: 24) */
+  size?: number
+  /** Icon color (default: currentColor) */
+  color?: string
+}
+
+const Cloud4Inner = forwardRef<SVGSVGElement, IconProps>(
+  function Cloud4({ size = 24, color = 'currentColor', ...props }: IconProps, ref) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={color} {...props}>
+        <path d="M4.7999 17.1054C3.36511 16.2684 2.3999 14.7041 2.3999 12.9126C2.3999 10.7169 3.84928 8.86208 5.83678 8.2698C6.87365 5.87422 9.24365 4.19995 11.9999 4.19995C15.4218 4.19995 18.2474 6.78036 18.6655 10.1171C20.3493 10.5278 21.5999 12.057 21.5999 13.8806C21.5999 15.2261 20.9193 16.4113 19.8864 17.1054M8.3999 19.8V13.8M16.7999 19.8V13.8M12.5999 19.8V13.8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    )
+  }
+)
+
+export const Cloud4 = memo(Cloud4Inner)
+Cloud4.displayName = 'Cloud4'

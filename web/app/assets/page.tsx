@@ -216,8 +216,8 @@ function CategoryFilter({
     <div
       className="inline-flex items-center rounded-full p-1 flex-wrap"
       style={{
-        background: '#FFFFFF',
-        border: '1px solid rgba(15,18,17,0.08)',
+        background: 'var(--nw-admin-surface-inner)',
+        border: '1px solid rgba(24,18,15,0.08)',
       }}
     >
       {options.map((opt) => {
@@ -228,10 +228,10 @@ function CategoryFilter({
             onClick={() => onChange(opt)}
             className="px-3 text-xs rounded-full transition-colors capitalize"
             style={{
-              background: active ? 'rgba(15,18,17,0.08)' : 'transparent',
-              color: active ? '#0F1211' : 'rgba(15,18,17,0.55)',
+              background: active ? 'rgba(24,18,15,0.08)' : 'transparent',
+              color: active ? 'var(--nw-admin-fg)' : 'rgba(24,18,15,0.55)',
               fontWeight: active ? 500 : 400,
-              border: active ? '1px solid rgba(15,18,17,0.18)' : '1px solid transparent',
+              border: active ? '1px solid rgba(24,18,15,0.18)' : '1px solid transparent',
               height: 36,
             }}
           >
@@ -265,8 +265,8 @@ function AssetCard({
         className="rounded-2xl overflow-hidden relative aspect-square"
         style={{
           background:
-            'repeating-conic-gradient(rgba(15,18,17,0.04) 0% 25%, transparent 0% 50%) 50% / 16px 16px',
-          border: '1px solid rgba(15,18,17,0.06)',
+            'repeating-conic-gradient(rgba(24,18,15,0.04) 0% 25%, transparent 0% 50%) 50% / 16px 16px',
+          border: '1px solid rgba(24,18,15,0.06)',
         }}
       >
         {asset.kind === 'component' ? (
@@ -285,9 +285,9 @@ function AssetCard({
         <span
           className="absolute top-2 left-2 text-[10px] font-medium px-2 py-0.5 rounded-full"
           style={{
-            background: '#FFFFFF',
-            color: '#0F1211',
-            border: '1px solid rgba(15,18,17,0.08)',
+            background: 'var(--nw-admin-surface-inner)',
+            color: 'var(--nw-admin-fg)',
+            border: '1px solid rgba(24,18,15,0.08)',
           }}
         >
           {asset.kind === 'component' ? 'Code' : 'Image'}
@@ -295,15 +295,15 @@ function AssetCard({
       </div>
 
       <div className="mt-3 space-y-2">
-        <p className="text-sm font-medium truncate" style={{ color: '#0F1211' }}>
+        <p className="text-sm font-medium truncate" style={{ color: 'var(--nw-admin-fg)' }}>
           {asset.name}
         </p>
         <p
           className="text-[11px] leading-snug line-clamp-2"
-          style={{ color: 'rgba(15,18,17,0.55)' }}
+          style={{ color: 'rgba(24,18,15,0.55)' }}
           title={asset.description ?? ''}
         >
-          {asset.description || <span style={{ color: 'rgba(15,18,17,0.35)' }}>No description</span>}
+          {asset.description || <span style={{ color: 'rgba(24,18,15,0.35)' }}>No description</span>}
         </p>
         {(asset.categories ?? []).length > 0 && (
           <div className="flex flex-wrap gap-1">
@@ -312,9 +312,9 @@ function AssetCard({
                 key={t}
                 className="px-2 py-0.5 text-[10px] rounded-full"
                 style={{
-                  background: 'rgba(15,18,17,0.04)',
-                  color: 'rgba(15,18,17,0.6)',
-                  border: '1px solid rgba(15,18,17,0.06)',
+                  background: 'rgba(24,18,15,0.04)',
+                  color: 'rgba(24,18,15,0.6)',
+                  border: '1px solid rgba(24,18,15,0.06)',
                 }}
               >
                 {t}
@@ -356,10 +356,10 @@ function IconAction({
         height: 28,
         borderRadius: 9999,
         background: 'transparent',
-        color: danger ? '#DC2626' : 'rgba(15,18,17,0.6)',
-        border: '1px solid rgba(15,18,17,0.08)',
+        color: danger ? '#DC2626' : 'rgba(24,18,15,0.6)',
+        border: '1px solid rgba(24,18,15,0.08)',
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(15,18,17,0.04)' }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(24,18,15,0.04)' }}
       onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
     >
       {children}
@@ -597,7 +597,7 @@ function AssetFormModal({
       data-admin
       className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6 overflow-y-auto"
       style={{
-        background: 'rgba(15,18,17,0.25)',
+        background: 'rgba(24,18,15,0.25)',
         backdropFilter: 'blur(10px)',
         WebkitBackdropFilter: 'blur(10px)',
       }}
@@ -607,7 +607,7 @@ function AssetFormModal({
         className="w-full rounded-3xl my-auto"
         style={{
           maxWidth: 720,
-          background: '#FFFFFF',
+          background: 'var(--nw-admin-surface-inner)',
           border: '1px solid var(--nw-admin-border-outer)',
           padding: 14,
         }}
@@ -616,7 +616,7 @@ function AssetFormModal({
         <div
           className="rounded-3xl p-6"
           style={{
-            background: '#FFFFFF',
+            background: 'var(--nw-admin-surface-inner)',
             border: '1px solid var(--nw-admin-border-inner)',
           }}
         >
@@ -661,9 +661,9 @@ function AssetFormModal({
                 placeholder={`<div style={{ display: 'flex', ... }}>\n  …\n</div>`}
                 className="w-full px-4 py-3 rounded-2xl outline-none resize-none transition-colors"
                 style={{
-                  background: '#FFFFFF',
-                  border: '1px solid rgba(15,18,17,0.12)',
-                  color: '#0F1211',
+                  background: 'var(--nw-admin-surface-inner)',
+                  border: '1px solid rgba(24,18,15,0.12)',
+                  color: 'var(--nw-admin-fg)',
                   fontFamily: 'ui-monospace, Menlo, monospace',
                   fontSize: 12,
                   lineHeight: 1.5,
@@ -673,9 +673,9 @@ function AssetFormModal({
                 <div
                   className="mt-3 rounded-2xl overflow-hidden"
                   style={{
-                    border: '1px solid rgba(15,18,17,0.08)',
+                    border: '1px solid rgba(24,18,15,0.08)',
                     aspectRatio: '4 / 3',
-                    background: '#FFFFFF',
+                    background: 'var(--nw-admin-surface-inner)',
                   }}
                 >
                   <CodeRunner source={draft.source_code} />
@@ -756,7 +756,7 @@ function AssetFormModal({
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] font-medium uppercase tracking-wider mb-1.5" style={{ color: 'rgba(15,18,17,0.5)' }}>
+    <p className="text-[10px] font-medium uppercase tracking-wider mb-1.5" style={{ color: 'rgba(24,18,15,0.5)' }}>
       {children}
     </p>
   )
@@ -768,8 +768,8 @@ function KindToggle({ value, onChange }: { value: AssetKind; onChange: (k: Asset
       className="relative flex items-center rounded-full w-full"
       style={{
         height: 44,
-        background: '#FFFFFF',
-        border: '1px solid rgba(15,18,17,0.08)',
+        background: 'var(--nw-admin-surface-inner)',
+        border: '1px solid rgba(24,18,15,0.08)',
         padding: 4,
       }}
     >
@@ -779,8 +779,8 @@ function KindToggle({ value, onChange }: { value: AssetKind; onChange: (k: Asset
           top: 4, bottom: 4,
           left: value === 'image' ? 4 : 'calc(50% + 0px)',
           width: 'calc(50% - 4px)',
-          background: 'rgba(15,18,17,0.08)',
-          border: '1px solid rgba(15,18,17,0.18)',
+          background: 'rgba(24,18,15,0.08)',
+          border: '1px solid rgba(24,18,15,0.18)',
           transition: 'left 250ms cubic-bezier(0.4,0,0.2,1)',
         }}
       />
@@ -789,7 +789,7 @@ function KindToggle({ value, onChange }: { value: AssetKind; onChange: (k: Asset
         onClick={() => onChange('image')}
         className="relative z-10 flex-1 text-sm rounded-full"
         style={{
-          color: value === 'image' ? '#0F1211' : 'rgba(15,18,17,0.55)',
+          color: value === 'image' ? 'var(--nw-admin-fg)' : 'rgba(24,18,15,0.55)',
           fontWeight: value === 'image' ? 500 : 400,
           height: '100%',
         }}
@@ -801,7 +801,7 @@ function KindToggle({ value, onChange }: { value: AssetKind; onChange: (k: Asset
         onClick={() => onChange('component')}
         className="relative z-10 flex-1 text-sm rounded-full"
         style={{
-          color: value === 'component' ? '#0F1211' : 'rgba(15,18,17,0.55)',
+          color: value === 'component' ? 'var(--nw-admin-fg)' : 'rgba(24,18,15,0.55)',
           fontWeight: value === 'component' ? 500 : 400,
           height: '100%',
         }}
@@ -836,8 +836,8 @@ function DropZone({
       style={{
         aspectRatio: '4 / 3',
         background:
-          'repeating-conic-gradient(rgba(15,18,17,0.04) 0% 25%, transparent 0% 50%) 50% / 24px 24px',
-        border: `1px dashed ${hovered ? 'var(--nw-admin-accent)' : 'rgba(15,18,17,0.18)'}`,
+          'repeating-conic-gradient(rgba(24,18,15,0.04) 0% 25%, transparent 0% 50%) 50% / 24px 24px',
+        border: `1px dashed ${hovered ? 'var(--nw-admin-accent)' : 'rgba(24,18,15,0.18)'}`,
       }}
     >
       {previewUrl ? (
@@ -849,15 +849,15 @@ function DropZone({
         />
       ) : (
         <div className="flex flex-col items-center gap-2 text-center pointer-events-none">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'rgba(15,18,17,0.35)' }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'rgba(24,18,15,0.35)' }}>
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
             <polyline points="17 8 12 3 7 8" />
             <line x1="12" y1="3" x2="12" y2="15" />
           </svg>
-          <p className="text-sm" style={{ color: 'rgba(15,18,17,0.55)' }}>
+          <p className="text-sm" style={{ color: 'rgba(24,18,15,0.55)' }}>
             Drop an image, or click to pick
           </p>
-          <p className="text-[11px]" style={{ color: 'rgba(15,18,17,0.4)' }}>
+          <p className="text-[11px]" style={{ color: 'rgba(24,18,15,0.4)' }}>
             PNG transparency and SVG are preserved.
           </p>
         </div>
@@ -878,9 +878,9 @@ function DropZone({
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); onFile(null) }}
           className="absolute top-3 right-3 w-7 h-7 rounded-full flex items-center justify-center"
           style={{
-            background: '#FFFFFF',
-            border: '1px solid rgba(15,18,17,0.12)',
-            color: '#0F1211',
+            background: 'var(--nw-admin-surface-inner)',
+            border: '1px solid rgba(24,18,15,0.12)',
+            color: 'var(--nw-admin-fg)',
           }}
           aria-label="Remove"
         >
@@ -902,13 +902,13 @@ function InputText({ value, onChange, placeholder }: { value: string; onChange: 
       placeholder={placeholder}
       className="w-full px-4 text-sm rounded-full outline-none transition-colors"
       style={{
-        background: '#FFFFFF',
-        border: '1px solid rgba(15,18,17,0.12)',
-        color: '#0F1211',
+        background: 'var(--nw-admin-surface-inner)',
+        border: '1px solid rgba(24,18,15,0.12)',
+        color: 'var(--nw-admin-fg)',
         height: 44,
       }}
       onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--nw-admin-accent)' }}
-      onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(15,18,17,0.12)' }}
+      onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(24,18,15,0.12)' }}
     />
   )
 }
@@ -922,12 +922,12 @@ function InputTextArea({ value, onChange, placeholder, rows = 3 }: { value: stri
       rows={rows}
       className="w-full px-4 py-3 text-sm rounded-2xl outline-none resize-none transition-colors"
       style={{
-        background: '#FFFFFF',
-        border: '1px solid rgba(15,18,17,0.12)',
-        color: '#0F1211',
+        background: 'var(--nw-admin-surface-inner)',
+        border: '1px solid rgba(24,18,15,0.12)',
+        color: 'var(--nw-admin-fg)',
       }}
       onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--nw-admin-accent)' }}
-      onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(15,18,17,0.12)' }}
+      onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(24,18,15,0.12)' }}
     />
   )
 }
@@ -958,8 +958,8 @@ function CategoryMultiselect({
       className="rounded-full flex items-center gap-1.5 flex-wrap px-3 transition-colors"
       style={{
         minHeight: 44,
-        background: '#FFFFFF',
-        border: '1px solid rgba(15,18,17,0.12)',
+        background: 'var(--nw-admin-surface-inner)',
+        border: '1px solid rgba(24,18,15,0.12)',
         padding: '4px 8px',
       }}
     >
@@ -968,9 +968,9 @@ function CategoryMultiselect({
           key={c}
           className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-full"
           style={{
-            background: 'rgba(15,18,17,0.06)',
-            color: '#0F1211',
-            border: '1px solid rgba(15,18,17,0.1)',
+            background: 'rgba(24,18,15,0.06)',
+            color: 'var(--nw-admin-fg)',
+            border: '1px solid rgba(24,18,15,0.1)',
           }}
         >
           {c}
@@ -1000,7 +1000,7 @@ function CategoryMultiselect({
         onBlur={addCurrent}
         placeholder={value.length ? '' : 'Type + enter'}
         className="flex-1 min-w-[80px] bg-transparent outline-none text-sm"
-        style={{ color: '#0F1211', height: 28 }}
+        style={{ color: 'var(--nw-admin-fg)', height: 28 }}
       />
       <datalist id="category-suggestions">
         {SUGGESTED_CATEGORIES.map((c) => (

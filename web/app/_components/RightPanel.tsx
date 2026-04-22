@@ -51,7 +51,7 @@ export function RightPanel({
         {/* Sticky footer with auto-save status + Export */}
         <div
           className="shrink-0 flex flex-col gap-2"
-          style={{ padding: 12, borderTop: '1px solid rgba(15,18,17,0.06)' }}
+          style={{ padding: 12, borderTop: '1px solid rgba(24,18,15,0.06)' }}
         >
           <SaveStatus
             saveState={saveState}
@@ -95,8 +95,8 @@ export function SlideToggle({
       className="relative flex items-center rounded-full w-full"
       style={{
         height: 44,
-        background: '#FFFFFF',
-        border: '1px solid rgba(15,18,17,0.08)',
+        background: 'var(--nw-admin-surface-inner)',
+        border: '1px solid rgba(24,18,15,0.08)',
         padding: 4,
       }}
     >
@@ -107,8 +107,8 @@ export function SlideToggle({
           bottom: 4,
           left: left.active ? 4 : 'calc(50% + 0px)',
           width: 'calc(50% - 4px)',
-          background: 'rgba(15,18,17,0.08)',
-          border: '1px solid rgba(15,18,17,0.18)',
+          background: 'rgba(24,18,15,0.08)',
+          border: '1px solid rgba(24,18,15,0.18)',
           transition: 'left 250ms cubic-bezier(0.4,0,0.2,1)',
         }}
       />
@@ -117,7 +117,7 @@ export function SlideToggle({
         onClick={left.onClick}
         className="relative z-10 flex-1 text-sm rounded-full"
         style={{
-          color: left.active ? '#0F1211' : 'rgba(15,18,17,0.55)',
+          color: left.active ? 'var(--nw-admin-fg)' : 'rgba(24,18,15,0.55)',
           fontWeight: left.active ? 500 : 400,
           height: '100%',
         }}
@@ -129,7 +129,7 @@ export function SlideToggle({
         onClick={right.onClick}
         className="relative z-10 flex-1 text-sm rounded-full"
         style={{
-          color: right.active ? '#0F1211' : 'rgba(15,18,17,0.55)',
+          color: right.active ? 'var(--nw-admin-fg)' : 'rgba(24,18,15,0.55)',
           fontWeight: right.active ? 500 : 400,
           height: '100%',
         }}
@@ -143,7 +143,7 @@ export function SlideToggle({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-[10px] font-medium uppercase tracking-wider mb-1.5" style={{ color: 'rgba(15,18,17,0.5)' }}>
+      <label className="block text-[10px] font-medium uppercase tracking-wider mb-1.5" style={{ color: 'rgba(24,18,15,0.5)' }}>
         {label}
       </label>
       {children}
@@ -265,7 +265,7 @@ function AddLayerActions() {
       fontFamily: 'display',
       fontSize: 96,
       fontWeight: 600,
-      color: post.theme === 'dark' ? '#F5F5F5' : '#0F1211',
+      color: post.theme === 'dark' ? '#F5F5F5' : 'var(--nw-admin-fg)',
       align: 'left',
       lineHeight: 1.08,
     })
@@ -286,7 +286,7 @@ function AddLayerActions() {
       y: Math.round((CANVAS.H - h) / 2),
       w,
       h,
-      source: `<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', color: '${post.theme === 'dark' ? '#F5F5F5' : '#0F1211'}', fontFamily: 'var(--font-display)', fontSize: 72, fontWeight: 600 }}>
+      source: `<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', color: '${post.theme === 'dark' ? '#F5F5F5' : 'var(--nw-admin-fg)'}', fontFamily: 'var(--font-display)', fontSize: 72, fontWeight: 600 }}>
   Your JSX here
 </div>`,
     })
@@ -298,13 +298,13 @@ function AddLayerActions() {
         onClick={addText}
         className="w-full flex items-center justify-center gap-2 text-sm rounded-full transition-colors"
         style={{
-          background: '#FFFFFF',
-          border: '1px solid rgba(15,18,17,0.12)',
-          color: '#0F1211',
+          background: 'var(--nw-admin-surface-inner)',
+          border: '1px solid rgba(24,18,15,0.12)',
+          color: 'var(--nw-admin-fg)',
           height: 44,
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(15,18,17,0.03)' }}
-        onMouseLeave={(e) => { e.currentTarget.style.background = '#FFFFFF' }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(24,18,15,0.03)' }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--nw-admin-surface-inner)' }}
       >
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -315,13 +315,13 @@ function AddLayerActions() {
         onClick={addCode}
         className="w-full flex items-center justify-center gap-2 text-sm rounded-full transition-colors"
         style={{
-          background: '#FFFFFF',
-          border: '1px solid rgba(15,18,17,0.12)',
-          color: '#0F1211',
+          background: 'var(--nw-admin-surface-inner)',
+          border: '1px solid rgba(24,18,15,0.12)',
+          color: 'var(--nw-admin-fg)',
           height: 44,
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(15,18,17,0.03)' }}
-        onMouseLeave={(e) => { e.currentTarget.style.background = '#FFFFFF' }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(24,18,15,0.03)' }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--nw-admin-surface-inner)' }}
       >
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m8 3-6 9 6 9M16 3l6 9-6 9" />
@@ -336,7 +336,7 @@ function LayerInspector({ layer }: { layer: Layer }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(15,18,17,0.5)' }}>
+        <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'rgba(24,18,15,0.5)' }}>
           {layer.kind}
         </p>
         <div className="flex items-center gap-1">
@@ -462,11 +462,11 @@ function IconBtn({
       title={title}
       className="w-6 h-6 rounded-full flex items-center justify-center transition-colors"
       style={{
-        color: danger ? '#DC2626' : 'rgba(15,18,17,0.55)',
+        color: danger ? '#DC2626' : 'rgba(24,18,15,0.55)',
         background: 'transparent',
-        border: '1px solid rgba(15,18,17,0.08)',
+        border: '1px solid rgba(24,18,15,0.08)',
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(15,18,17,0.04)' }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(24,18,15,0.04)' }}
       onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
     >
       {children}
@@ -484,9 +484,9 @@ function TextInspector({ layer }: { layer: TextLayer }) {
           rows={3}
           className="w-full px-4 py-3 text-sm rounded-2xl outline-none resize-none transition-colors"
           style={{
-            background: '#FFFFFF',
-            border: '1px solid rgba(15,18,17,0.12)',
-            color: '#0F1211',
+            background: 'var(--nw-admin-surface-inner)',
+            border: '1px solid rgba(24,18,15,0.12)',
+            color: 'var(--nw-admin-fg)',
           }}
           {...inputFocus}
         />
@@ -571,9 +571,9 @@ function CodeInspector({ layer }: { layer: CodeLayer }) {
           spellCheck={false}
           className="w-full px-4 py-3 rounded-2xl outline-none resize-none transition-colors"
           style={{
-            background: '#FFFFFF',
-            border: '1px solid rgba(15,18,17,0.12)',
-            color: '#0F1211',
+            background: 'var(--nw-admin-surface-inner)',
+            border: '1px solid rgba(24,18,15,0.12)',
+            color: 'var(--nw-admin-fg)',
             fontFamily: 'ui-monospace, Menlo, monospace',
             fontSize: 12,
             lineHeight: 1.5,
@@ -581,7 +581,7 @@ function CodeInspector({ layer }: { layer: CodeLayer }) {
           {...inputFocus}
         />
       </Field>
-      <p className="text-[11px] leading-relaxed" style={{ color: 'rgba(15,18,17,0.5)' }}>
+      <p className="text-[11px] leading-relaxed" style={{ color: 'rgba(24,18,15,0.5)' }}>
         Single JSX expression. Scope: React, motion, AnimatePresence, Icons, cn. No hooks, no imports.
       </p>
     </div>
@@ -631,11 +631,11 @@ function SaveStatus({
   }, [saveState, lastSavedAt])
 
   let label = ''
-  let color = 'rgba(15,18,17,0.5)'
+  let color = 'rgba(24,18,15,0.5)'
   let dotColor: string | null = null
   if (saveState === 'saving') {
     label = 'Saving…'
-    dotColor = 'rgba(15,18,17,0.35)'
+    dotColor = 'rgba(24,18,15,0.35)'
   } else if (saveState === 'error') {
     label = "Couldn't save · click to retry"
     color = '#DC2626'
@@ -647,7 +647,7 @@ function SaveStatus({
     dotColor = 'var(--nw-admin-accent)'
   } else if (dirty) {
     label = 'Unsaved'
-    dotColor = 'rgba(15,18,17,0.35)'
+    dotColor = 'rgba(24,18,15,0.35)'
   }
 
   if (!label) return <div style={{ height: 18 }} aria-hidden />

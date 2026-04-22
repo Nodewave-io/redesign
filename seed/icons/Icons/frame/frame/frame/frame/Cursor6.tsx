@@ -1,0 +1,22 @@
+import { forwardRef, memo } from 'react'
+import type { SVGProps } from 'react'
+
+interface IconProps extends SVGProps<SVGSVGElement> {
+  /** Icon size (default: 24) */
+  size?: number
+  /** Icon color (default: currentColor) */
+  color?: string
+}
+
+const Cursor6Inner = forwardRef<SVGSVGElement, IconProps>(
+  function Cursor6({ size = 24, color = 'currentColor', ...props }: IconProps, ref) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={color} {...props}>
+        <path d="M9.5999 19.6327H4.56997C3.37147 19.6327 2.3999 18.6683 2.3999 17.4786V4.55411C2.3999 3.36444 3.37147 2.40002 4.56997 2.40002H17.5904C18.7889 2.40002 19.7604 3.36444 19.7604 4.55411V8.40002M17.3507 15.977L21.0644 14.7205C21.7605 14.485 21.7838 13.5299 21.0999 13.2622L11.8926 9.65762C11.252 9.40686 10.6113 10.0184 10.8515 10.6513L14.3589 19.8927C14.6152 20.568 15.5908 20.5695 15.8493 19.895L17.3507 15.977Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    )
+  }
+)
+
+export const Cursor6 = memo(Cursor6Inner)
+Cursor6.displayName = 'Cursor6'

@@ -1,0 +1,22 @@
+import { forwardRef, memo } from 'react'
+import type { SVGProps } from 'react'
+
+interface IconProps extends SVGProps<SVGSVGElement> {
+  /** Icon size (default: 24) */
+  size?: number
+  /** Icon color (default: currentColor) */
+  color?: string
+}
+
+const HorizontalChartInner = forwardRef<SVGSVGElement, IconProps>(
+  function HorizontalChart({ size = 24, color = 'currentColor', ...props }: IconProps, ref) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={color} {...props}>
+        <path d="M3 9.64508H7.17801M3 9.64508L7.1196 9.64618C7.13918 9.64618 7.15866 9.64581 7.17801 9.64508M3 9.64508L3 5.7599C3 5.22971 3.53726 4.7999 4.2 4.7999H7.12C7.78274 4.7999 8.32 5.22971 8.32 5.7599V8.68618C8.32 9.20083 7.81379 9.62087 7.17801 9.64508M3 9.64508L3 14.4917M7.17801 9.64508L12.776 9.64508C13.4387 9.64508 13.976 10.0749 13.976 10.6051V13.5317C13.976 14.0619 13.4387 14.4917 12.776 14.4917M3 14.4917H12.776M3 14.4917L3 18.2399C3 18.7701 3.53726 19.1999 4.2 19.1999L19.8 19.1999C20.4627 19.1999 21 18.7701 21 18.2399V15.4517C21 14.9215 20.4627 14.4917 19.8 14.4917L12.776 14.4917M3 21.5999V2.3999" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    )
+  }
+)
+
+export const HorizontalChart = memo(HorizontalChartInner)
+HorizontalChart.displayName = 'HorizontalChart'

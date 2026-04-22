@@ -483,7 +483,7 @@ function FirstSlidePreview({ post }: { post: PostRow }) {
               color:
                 post.theme === 'dark'
                   ? 'rgba(245,245,245,0.4)'
-                  : 'rgba(15,18,17,0.35)',
+                  : 'rgba(24,18,15,0.35)',
             }}
           >
             Empty

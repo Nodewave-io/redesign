@@ -1,0 +1,22 @@
+import { forwardRef, memo } from 'react'
+import type { SVGProps } from 'react'
+
+interface IconProps extends SVGProps<SVGSVGElement> {
+  /** Icon size (default: 24) */
+  size?: number
+  /** Icon color (default: currentColor) */
+  color?: string
+}
+
+const PaintBucket2Inner = forwardRef<SVGSVGElement, IconProps>(
+  function PaintBucket2({ size = 24, color = 'currentColor', ...props }: IconProps, ref) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={color} {...props}>
+        <path d="M17.9133 11.3595C17.927 11.8874 17.7323 12.4198 17.3294 12.8228L12.1684 17.9838C11.3889 18.7633 10.1252 18.7633 9.34571 17.9838L4.18469 12.8228C3.78174 12.4198 3.5871 11.8874 3.60077 11.3595M17.9133 11.3595C17.9017 10.9104 17.7394 10.4645 17.4264 10.1042C17.3902 10.0246 17.3395 9.95016 17.2741 9.88476L10.8478 3.45853M17.9133 11.3595H3.60077M3.60077 11.3595C3.61355 10.8661 3.80819 10.3766 4.18469 10.0001C4.31739 9.86743 10.8478 3.45853 10.8478 3.45853M10.8478 3.45853L9.78935 2.40002M4.61062 21.6H15.2211M19.5496 15.1937C19.4868 15.0945 19.3792 15.0315 19.2626 15.0315C19.1459 15.0315 19.0383 15.0946 18.9755 15.1937C18.7512 15.5633 18.0247 16.8255 18.0247 17.3754C18.0247 18.0606 18.5808 18.6196 19.2626 18.6196C19.9443 18.6196 20.5004 18.0606 20.5004 17.3754C20.5004 16.8165 19.7739 15.5633 19.5496 15.1937Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    )
+  }
+)
+
+export const PaintBucket2 = memo(PaintBucket2Inner)
+PaintBucket2.displayName = 'PaintBucket2'

@@ -1,0 +1,22 @@
+import { forwardRef, memo } from 'react'
+import type { SVGProps } from 'react'
+
+interface IconProps extends SVGProps<SVGSVGElement> {
+  /** Icon size (default: 25) */
+  size?: number
+  /** Icon color (default: currentColor) */
+  color?: string
+}
+
+const PhoneUpInner = forwardRef<SVGSVGElement, IconProps>(
+  function PhoneUp({ size = 25, color = 'currentColor', ...props }: IconProps, ref) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 25 24" fill={color} {...props}>
+        <path d="M8.511 16.3568L12.111 12.7568M12.111 12.7568L15.5518 16.1941M12.111 12.7568L12.111 21.5999M1.02554 9.51103C1.02564 8.72817 1.02128 7.80963 1.00153 7.56419C0.978945 6.86867 1.20582 6.30269 1.72551 5.783C2.77809 4.85676 5.25846 3.81258 5.25846 3.81258C5.25846 3.81258 8.51261 2.39995 11.9547 2.40002C15.3388 2.4001 18.5439 3.47286 20.4034 4.32624C21.541 4.84423 22.2992 5.37593 22.8576 6.03428C23.2133 6.45657 23.3858 6.92896 23.3853 7.48139L23.3658 9.59283C23.3597 10.2584 22.813 10.7918 22.1475 10.7816L19.1364 10.7356C18.4808 10.7256 17.9547 10.1913 17.9547 9.53575V8.30162C17.9547 8.0113 17.7479 7.76323 17.4613 7.71665C16.3914 7.54274 13.805 7.16063 11.9534 7.20003C10.3109 7.23497 8.04433 7.5638 7.05279 7.71931C6.76399 7.7646 6.55469 8.01381 6.55469 8.30615V9.51755C6.55469 10.1803 6.01743 10.7176 5.35468 10.7176L2.22913 10.7175C1.56372 10.7175 1.02545 10.1764 1.02554 9.51103Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    )
+  }
+)
+
+export const PhoneUp = memo(PhoneUpInner)
+PhoneUp.displayName = 'PhoneUp'

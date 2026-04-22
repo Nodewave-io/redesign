@@ -1,0 +1,22 @@
+import { forwardRef, memo } from 'react'
+import type { SVGProps } from 'react'
+
+interface IconProps extends SVGProps<SVGSVGElement> {
+  /** Icon size (default: 24) */
+  size?: number
+  /** Icon color (default: currentColor) */
+  color?: string
+}
+
+const Edit4Inner = forwardRef<SVGSVGElement, IconProps>(
+  function Edit4({ size = 24, color = 'currentColor', ...props }: IconProps, ref) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={color} {...props}>
+        <path fillRule="evenodd" clipRule="evenodd" d="M15.3247 4.90729C15.7151 4.51674 16.3481 4.51647 16.7388 4.9067L19.0922 7.25746C19.483 7.64784 19.4833 8.28116 19.0928 8.67187L9.13495 18.6352C8.99567 18.7745 8.81832 18.8696 8.62517 18.9085L4.19995 19.8002L5.0932 15.3802C5.13215 15.1875 5.22707 15.0105 5.36608 14.8714L15.3247 4.90729Z" stroke={color} strokeWidth="2" strokeLinejoin="round"/>
+      </svg>
+    )
+  }
+)
+
+export const Edit4 = memo(Edit4Inner)
+Edit4.displayName = 'Edit4'
