@@ -27,23 +27,26 @@ import type {
   Theme,
 } from './types.js'
 
-// SQLite's `strftime('%Y-%m-%dT%H:%M:%fZ','now')` has ms precision,
-// which isn't enough for a test (or a Claude batch) that fires two
-// updates inside the same millisecond. We issue timestamps from JS so
-// we can guarantee strict monotonicity across the process.
+// SQLite's `strftime('%Y-%m-%dT%H:%M:%fZ','now')` has ms precision —
+// not enough when a batch (or a test) fires two updates inside the
+// same ms. We issue timestamps from JS and guarantee strict
+// monotonicity relative to both our own process AND whatever the DB
+// already holds. The `floor` argument is the value we need to beat
+// (typically the row's current updated_at just before an update), so
+// a create-then-update in the same ms still advances.
 let _lastTs = ''
-function nowMonotonic(): string {
+function nowMonotonic(floor?: string): string {
   const ts = new Date().toISOString()
-  if (ts > _lastTs) {
-    _lastTs = ts
-    return ts
+  let next = ts > _lastTs ? ts : _lastTs
+  if (floor && next <= floor) {
+    next = new Date(new Date(floor).getTime() + 1).toISOString()
+  } else if (next === _lastTs) {
+    // Same ms as the previous issue (or clock drift). Bump by 1ms so
+    // updated_at strictly advances.
+    next = new Date(new Date(_lastTs).getTime() + 1).toISOString()
   }
-  // Same ms (or clock drifted backward): bump the last one by 1ms so
-  // updated_at strictly advances. Fractions of a ms don't round-trip
-  // through strftime, so a whole-ms bump is the floor.
-  const bumped = new Date(new Date(_lastTs).getTime() + 1).toISOString()
-  _lastTs = bumped
-  return bumped
+  _lastTs = next
+  return next
 }
 
 export class StaleUpdateError extends Error {
@@ -108,8 +111,14 @@ export type NewPostInput = {
 
 export function createPost(input: NewPostInput): MediaPost {
   const id = randomUUID()
+  const pageCount = input.page_count ?? 3
+  // If the caller gives a page_count but no slides, auto-generate
+  // blank slide stubs so page_count and slides.length stay in sync.
+  const slides =
+    input.slides ??
+    Array.from({ length: pageCount }, () => ({ id: randomUUID() }))
   const slidesJson = JSON.stringify({
-    slides: input.slides ?? [],
+    slides,
     layers: input.layers ?? [],
   })
   getDb()
@@ -191,11 +200,17 @@ export function updatePost(
     }
     if (cols.length === 0) return  // no-op patch; still return current row below
 
-    // Bump updated_at explicitly from JS so it's strictly monotonic
-    // (see nowMonotonic above — SQLite's strftime 'now' is ms-precise,
-    // which isn't enough for back-to-back updates in the same ms).
+    // Bump updated_at explicitly from JS so it strictly advances.
+    // Pass the CURRENT row's updated_at as the floor so the new value
+    // is guaranteed > current even when the DB's default-generated
+    // timestamp was issued in the same ms as JS's Date.now().
+    const currentTs = db
+      .prepare<[string], { updated_at: string }>(
+        `SELECT updated_at FROM media_posts WHERE id = ?`,
+      )
+      .get(id)?.updated_at
     cols.push('updated_at = @updated_at')
-    params.updated_at = nowMonotonic()
+    params.updated_at = nowMonotonic(currentTs)
 
     const sql = `UPDATE media_posts SET ${cols.join(', ')} WHERE id = @id`
     const info = db.prepare(sql).run(params)

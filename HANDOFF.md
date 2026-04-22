@@ -1,7 +1,8 @@
 # Redesign — migration handoff
 
-State as of 2026-04-22. For the next Claude session that picks up
-the SQLite migration and public launch. Pair this with:
+State as of 2026-04-22 (lunch session, round 2). For the next Claude
+session that picks up the editor copy + web routes + landing
+integration. Pair this with:
 
 - [`docs/launch/business-plan.md`](../nw-site/docs/launch/business-plan.md) — why + what
 - [`docs/launch/landing-ui-design.md`](../nw-site/docs/launch/landing-ui-design.md) — landing page spec
@@ -19,58 +20,77 @@ redesign/
 ├── HANDOFF.md             this file
 ├── schema/
 │   └── 0001_init.sql      media_posts, media_assets, media_post_revisions,
-│                          media_mcp_log — mirror of Supabase schema, with
-│                          a touch trigger on media_posts and a trim
-│                          trigger on media_post_revisions (cap 30)
+│                          media_mcp_log — mirror of Supabase schema,
+│                          with touch + 30-cap trim triggers
+├── scripts/
+│   └── smoke.ts           29-check end-to-end suite (db + mcp pipeline)
 └── src/
-    └── db/
-        ├── paths.ts       ~/.redesign/{db.sqlite,assets,exports,logs}
-        ├── client.ts      singleton better-sqlite3, bootstraps schema on first boot
-        ├── types.ts       domain types (Layer, MediaPost, MediaAsset, …)
-        ├── repo.ts        repository fns: listPosts/getPost/createPost/
-        │                  updatePost (with optimistic concurrency)/deletePost,
-        │                  revisions CRUD, assets CRUD, mcp log insert
-        ├── storage.ts     fs save/remove for asset + export blobs, with
-        │                  path-traversal guards
-        └── init.ts        `npm run db:init` — bootstrap + print table list
+    ├── types.d.ts         ambient shims for optional peer deps
+    │                      (puppeteer, @babel/standalone)
+    ├── cli.ts             CLI entry: help / version / mcp / mcp-config /
+    │                      doctor / reset / init / start (stub)
+    ├── db/
+    │   ├── paths.ts       ~/.redesign/{db.sqlite,assets,exports,logs}
+    │   ├── client.ts      singleton better-sqlite3, auto-bootstraps
+    │   ├── types.ts       domain types
+    │   ├── repo.ts        typed CRUD, optimistic concurrency, monotonic
+    │   │                  updated_at, auto page_count/slides sync
+    │   ├── storage.ts     fs save/remove with path-traversal guards
+    │   └── init.ts        standalone `npm run db:init` bootstrap
+    ├── mcp/
+    │   ├── index.ts       stdio server entry, registers 11 tool files
+    │   ├── log.ts         withLogging wrapper (uses repo.insertMcpLog)
+    │   ├── write-helpers.ts  applyWrite: fetch → snapshot → mutate → commit
+    │   ├── batch.ts       applyBatch + applyAlign + applyDistribute
+    │   ├── schemas.ts     zod: layerInput, layerPatch, themeSchema
+    │   └── tools/
+    │       ├── posts-read.ts     list/get/describe (3 tools)
+    │       ├── posts-write.ts    create/update/set_page_count/
+    │       │                     set_slide_background/delete (5 tools)
+    │       ├── layers-write.ts   add/add_from_asset/update/set_code_source/
+    │       │                     remove/move_z (6 tools)
+    │       ├── batch-write.ts    apply_batch/remove_layers/update_layers/
+    │       │                     align/distribute (5 tools)
+    │       ├── assets-read.ts    list/get/search (3 tools)
+    │       ├── asset-curate.ts   create_component/save_layer/update/
+    │       │                     delete (4 tools)
+    │       ├── uploads.ts        upload_from_url/screenshot_url (2 tools)
+    │       ├── revisions.ts      list/get/revert_to (3 tools)
+    │       ├── inspect.ts        alignment/overlaps/bounds/compare/
+    │       │                     text_metrics/validate_layout (6 tools)
+    │       ├── validate.ts       validate_code (1 tool)
+    │       └── screenshot.ts     STUB — throws until web/ is ported
+    └── tokens/
+        ├── index.ts            design tokens (color/radius/space/
+        │                       fontStack/fontSize/motion/shadow/
+        │                       breakpoint). Accent = PLACEHOLDER,
+        │                       locked once v4 landing picks final.
+        └── tailwind-preset.ts  preset the editor's tailwind.config
+                                consumes so tokens stay unified
 ```
 
-Everything in `src/db/` is synchronous, typed, and has no dependency
-on Supabase. Already tested: `npx tsx scripts/smoke.ts` runs a 22-check
-end-to-end suite (posts CRUD, optimistic concurrency, revisions,
-assets, file storage, mcp log) against a disposable DB in `/tmp/`.
-All 22 pass on the author's Mac.
+**38 of 40 MCP tools are fully ported.** The two screenshot tools are
+registered but throw a friendly "not yet available" error — they need
+the Next editor + a puppeteer Chromium resolver, which lands with the
+editor copy.
 
-Run `npm i && npm run typecheck && npx tsx scripts/smoke.ts` to
-reproduce.
+### Verification
+
+```bash
+cd ~/Developer/nodewave/redesign
+npm install
+npm run typecheck          # clean
+npx tsx scripts/smoke.ts   # 29/29 checks pass — db CRUD, optimistic
+                           # concurrency, revisions, asset + file
+                           # storage, MCP applyWrite + applyBatch
+                           # (including in-batch UUID references)
+npx tsx src/cli.ts doctor  # all 3 env checks pass
+npx tsx src/cli.ts mcp-config  # prints pasteable .mcp.json snippet
+```
 
 ## What's NOT done (next session, in this order)
 
-### 1. MCP port — est. 4-6 hr
-
-Source lives at `nw-site/mcp/src/`. For each tool file under
-`src/tools/`, write the equivalent that imports from `@nodewave/redesign/db`:
-
-- [ ] `posts-read.ts`   → `listPosts`, `getPost`, + describe helper
-- [ ] `posts-write.ts`  → `createPost`, `updatePost`, `deletePost`
-- [ ] `layers-write.ts` → `updatePost` with layer-level patches
-- [ ] `batch-write.ts`  → keep batch.ts helper verbatim; swap the save call
-- [ ] `assets-read.ts`  → `listAssets`, `getAsset`
-- [ ] `asset-curate.ts` → `createAsset`, `updateAsset`, `deleteAsset` +
-                          `removeStoredFile` for images
-- [ ] `uploads.ts`      → `saveAssetBytes`
-- [ ] `revisions.ts`    → `listRevisions`, `getRevision`, `createRevision`
-- [ ] `inspect.ts`      → pure geometry; swap only the fetch call
-- [ ] `validate.ts`     → pure; copy verbatim
-- [ ] `screenshot.ts`   → the puppeteer path still works, just point it
-                          at a renderer that reads from SQLite instead
-                          of a Supabase URL
-
-The `withLogging` wrapper in `log.ts` stays conceptually identical,
-just swap `supabase.from('media_mcp_log').insert(row)` for
-`insertMcpLog(row)` from `src/db/repo.ts`.
-
-### 2. Editor port — est. 4-6 hr
+### 1. Editor port — est. 4-6 hr
 
 The Next editor lives at `nw-site/app/admin/media/`. Two options:
 
@@ -107,6 +127,23 @@ Routes to add under `redesign/web/app/api/`:
 - `export/route.ts`                — existing export pipeline, unchanged
                                      logic, storage layer swapped
 
+**Restyle note:** do NOT re-derive the editor's visual identity. Consume
+`src/tokens/index.ts` (and, for Tailwind, `src/tokens/tailwind-preset.ts`).
+The `color.accent` value is PLACEHOLDER (v1's `#FF5A1F`); Tiago's v4
+landing will lock it — update the token, and the editor inherits.
+
+### 2. Screenshot tools — est. 1-2 hr (after editor ports)
+
+`src/mcp/tools/screenshot.ts` is a stub. Once the editor lives at
+`redesign/web/` serving a `/render/<postId>/<slideIndex>` route, the
+real impl is:
+- Launch puppeteer (resolved from bundled Chromium or BYOC path)
+- `page.goto('http://127.0.0.1:<port>/render/...')`
+- `page.screenshot({ type, quality, fullPage: false })`
+- Return `{ type: 'image', data: base64, mimeType }`
+
+Both `media_screenshot` and `media_screenshot_strip` land here.
+
 ### 3. Auth removal — est. 30 min
 
 Rip out of the copied editor:
@@ -117,31 +154,15 @@ Rip out of the copied editor:
 In the CLI entry we can optionally print a warning if the process
 isn't bound to `127.0.0.1` only.
 
-### 4. CLI — est. 2-3 hr
+### 4. CLI `start` — est. 1 hr
 
-`src/cli.ts`:
-
-```
-redesign start               # default: dev server on :3000
-redesign start --port 4000
-redesign doctor              # checks node version, sqlite, permissions
-redesign mcp-config          # prints the .mcp.json snippet to paste
-redesign reset --yes         # deletes ~/.redesign/  (asks confirm unless --yes)
-```
-
-`start` spawns `next start` on the bundled `web/` build. `mcp-config`
-prints:
-
-```json
-{
-  "mcpServers": {
-    "redesign": {
-      "command": "npx",
-      "args": ["@nodewave/redesign", "mcp"]
-    }
-  }
-}
-```
+The CLI skeleton exists and most commands work. Only `redesign start`
+is a stub — it prints a friendly "not yet available" message. Once
+`web/` lands, flesh it out:
+- Spawn `next start` (prod) or `next dev` (when `--dev`) against `web/`
+- Pipe stderr/stdout so Ctrl-C exits cleanly
+- Print the mcp-config snippet + a "paste this into ~/.claude/mcp.json" hint
+- Open the browser if stdout is a TTY
 
 ### 5. Polish before publish — est. 2-3 hr
 
@@ -150,6 +171,25 @@ prints:
 - [ ] Publish as `@nodewave/redesign@0.1.0` (scope already locked in
       `package.json`)
 - [ ] Mirror repo to `github.com/Nodewave/redesign`
+
+## What's NEW in this round (vs. the previous handoff)
+
+- Full MCP port: 38/40 tools live under `src/mcp/tools/`, registered
+  in `src/mcp/index.ts`. Screenshot tools stubbed pending editor.
+- `src/tokens/` — design token single source of truth + Tailwind
+  preset. Placeholder accent, v4 landing will lock it.
+- `src/cli.ts` — working commands: help, version, mcp, mcp-config,
+  doctor, reset, init. `start` is a stub.
+- `src/types.d.ts` — ambient shims so typecheck passes without the
+  optional peer deps.
+- Smoke test extended from 22 → 29 checks (adds applyWrite,
+  applyBatch, in-batch UUID references, stale-expected rejection,
+  revision creation).
+- Bug fixes: (1) `createPost({ page_count })` now auto-generates
+  matching blank slides instead of leaving slides out of sync;
+  (2) `updatePost` now issues a timestamp strictly greater than both
+  the previous issue AND the row's current value — prevents same-ms
+  collisions between SQLite defaults and JS Date.now.
 
 ## Design notes / gotchas
 

@@ -108,6 +108,54 @@ try {
   })
   check('insertMcpLog does not throw', true)
 
+  console.log('[smoke] mcp write pipeline (applyWrite + applyBatch)')
+  const { applyWrite } = await import('../src/mcp/write-helpers.js')
+  const { applyBatch } = await import('../src/mcp/batch.js')
+  const mcpPost = repo.createPost({ title: 'MCP smoke', page_count: 3 })
+  const w1 = applyWrite(
+    mcpPost.id,
+    mcpPost.updated_at,
+    () => ({ fields: { title: 'MCP smoke v2' } }),
+    'smoke',
+  )
+  check('applyWrite patches fields', repo.getPost(mcpPost.id).title === 'MCP smoke v2')
+  check('applyWrite advances updated_at', w1.updated_at !== mcpPost.updated_at)
+
+  let staleRejected = false
+  try {
+    applyWrite(mcpPost.id, mcpPost.updated_at, () => ({ fields: { title: 'stale' } }), 'nope')
+  } catch {
+    staleRejected = true
+  }
+  check('applyWrite rejects stale expected_updated_at', staleRejected)
+
+  const preminted = crypto.randomUUID()
+  const b = applyBatch(
+    mcpPost.id,
+    w1.updated_at,
+    [
+      {
+        type: 'add_layer',
+        id: preminted,
+        layer: {
+          kind: 'text', slideIndex: 0, x: 10, y: 10, w: 200, h: 50,
+          text: 'hello', fontSize: 24, fontWeight: 400, color: '#fff', align: 'left',
+        },
+      },
+      { type: 'update_layer', layerId: preminted, patch: { text: 'goodbye' } },
+    ],
+    'batch-smoke',
+  )
+  check('applyBatch returns preminted id in addedLayerIds', b.addedLayerIds[0] === preminted)
+  const after = repo.getPost(mcpPost.id)
+  const addedLayer = after.layers.find((l) => l.id === preminted)
+  check(
+    'in-batch reference: later op saw earlier op\'s layer',
+    addedLayer?.kind === 'text' && (addedLayer as { text: string }).text === 'goodbye',
+  )
+  check('applyBatch created exactly one revision', repo.listRevisions(mcpPost.id).length >= 1)
+  repo.deletePost(mcpPost.id)
+
   console.log('[smoke] cleanup')
   repo.deletePost(p.id)
   check('deletePost removes row', repo.listPosts().length === 0)
