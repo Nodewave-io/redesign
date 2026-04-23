@@ -7,6 +7,55 @@ import type { Layer } from '../_lib/types'
 import { LayerNode, SlideBackground } from '../_lib/render'
 
 const STRIP_GAP = 0 // IG-style continuous roll — slides touch
+// Hard floor on manual zoom-out. Anything past this gets unreadable
+// AND keeps the dot-grid scaling so it feels like the canvas keeps
+// shrinking even though the user can't make sense of what they see.
+// Reset is always one click away to return to a usable scale.
+const MIN_ZOOM = 0.10
+
+// Viewport real-estate consumed by the floating panels at md+ widths
+// (the AdminSidebar at left and the RightPanel at right both use
+// `hidden md:flex`). Below md the panels stack/hide so the canvas
+// gets the full viewport. Used by the centering + fit-all math so
+// the visible strip looks centered between the two panels, not
+// between the raw viewport edges.
+const LEFT_PANEL_W = 220   // AdminSidebar: fixed, width 220
+const RIGHT_PANEL_W = 296  // RightPanel: right:16 + width:280
+const MD_BREAKPOINT = 768
+
+function panelMass(): { left: number; right: number } {
+  if (typeof window === 'undefined') return { left: 0, right: 0 }
+  if (!window.matchMedia(`(min-width: ${MD_BREAKPOINT}px)`).matches) {
+    return { left: 0, right: 0 }
+  }
+  return { left: LEFT_PANEL_W, right: RIGHT_PANEL_W }
+}
+
+// Scroll writes inside the same effect that calls setAutoScale (or
+// setUserZoom) get clamped to the inner div's pre-state-update width.
+// Defer to a microtask after React commits, then retry across a few
+// animation frames in case the inner div takes additional commits to
+// resize. Calls onApplied once the scroll position sticks.
+function scheduleScrollApply(
+  el: HTMLElement,
+  targetLeft: number,
+  targetTop: number,
+  onApplied?: () => void,
+): void {
+  const tryApply = (frames: number) => {
+    el.scrollLeft = targetLeft
+    el.scrollTop = targetTop
+    const stuck =
+      Math.abs(el.scrollLeft - targetLeft) > 1 ||
+      Math.abs(el.scrollTop - targetTop) > 1
+    if (stuck && frames > 0) {
+      requestAnimationFrame(() => tryApply(frames - 1))
+    } else if (onApplied) {
+      onApplied()
+    }
+  }
+  setTimeout(() => tryApply(10), 0)
+}
 
 export function Canvas() {
   const { post, selectedLayerId, viewMode, currentSlide } = useEditorState()
@@ -18,31 +67,102 @@ export function Canvas() {
   // `autoScale` is the fit-to-viewport scale (recomputed on resize).
   // `userZoom` overrides it once the user has zoomed manually.
   const wrapRef = useRef<HTMLDivElement | null>(null)
-  const [autoScale, setAutoScale] = useState(0.5)
+  // 0 means "not measured yet". The layout-effect re-center skips
+  // until autoScale is a real measured value, so first paint doesn't
+  // run with the default and lock in a stale scroll position.
+  const [autoScale, setAutoScale] = useState(0)
   const [userZoom, setUserZoom] = useState<number | null>(null)
   const [panActive, setPanActive] = useState(false)
+  // Bumped whenever we want the layout effect to re-run regardless of
+  // whether viewMode/autoScale/length actually changed. Stitched-click
+  // increments it so even a same-mode click triggers a re-center.
+  const [recenterTick, setRecenterTick] = useState(0)
+  // Live wrap viewport dimensions, kept in sync by the autoScale
+  // effect. Read in render to position the strip dynamically when it
+  // fits within the visible band (small post = no scroll needed,
+  // strip gets pinned at the visible-area center).
+  const [wrapDims, setWrapDims] = useState({ w: 0, h: 0 })
 
   useLayoutEffect(() => {
     const el = wrapRef.current
     if (!el) return
     const update = () => {
       const rect = el.getBoundingClientRect()
+      // Bail before we have a real measurement — running on a 0×0
+      // wrap would compute s=0 and lock the scroll position with
+      // stripW=0. The ResizeObserver will call us again once the wrap
+      // is laid out.
+      if (rect.width === 0 || rect.height === 0) return
+      // Keep wrap dims in render-readable state so the JSX strip
+      // positioning can reference them.
+      setWrapDims({ w: rect.width, h: rect.height })
       const visiblePages = viewMode === 'carousel' ? 1 : post.slides.length
       const totalCanvasW =
         CANVAS.W * visiblePages + STRIP_GAP * Math.max(0, visiblePages - 1)
-      const availW = rect.width - 48
-      // Carousel reserves extra vertical room so the floating
-      // Stitched/Carousel toggle (top) and the pagination-dots pill
-      // (bottom) sit outside the slide instead of overlapping it.
-      const availH = rect.height - (viewMode === 'carousel' ? 160 : 48)
-      const s = Math.min(availW / totalCanvasW, availH / CANVAS.H)
-      setAutoScale(Math.max(0.05, s))
+      // Subtract the floating panels' footprint so the fit-all math
+      // sizes the strip to what the user can ACTUALLY see between the
+      // two side panels (not edge-to-edge of the viewport, where it
+      // would slide partially under a panel). On narrow screens panels
+      // hide so panelMass() returns 0 and we use the full width.
+      const panels = panelMass()
+      const visibleW = rect.width - panels.left - panels.right
+      const availW = visibleW - 48
+      // Same vertical reserve for both modes so a 1-slide post in
+      // Stitched and the same post in Carousel render at IDENTICAL
+      // scale and position. The toggle pill (top) and pagination dots
+      // (bottom) overlay the slide instead of pushing it down — Tiago
+      // wants visual parity between the two views.
+      const availH = rect.height - 48
+      // 0.75 = strip takes ~60% of the visible (panel-excluded)
+      // viewport, leaving ~20% margin on each side. Tuned for the
+      // "fit-all overview" feel: you can see every slide AND have
+      // room to drag/edit without the strip kissing panel edges.
+      const FIT_MARGIN = 0.75
+      const s = Math.max(
+        0.05,
+        Math.min(availW / totalCanvasW, availH / CANVAS.H) * FIT_MARGIN,
+      )
+      setAutoScale(s)
+
+      // If a recenter is pending AND we're in stitched mode, apply it
+      // RIGHT HERE using the freshly-measured `s`. The previous design
+      // signaled the recenter via a separate useLayoutEffect, but
+      // React commits the autoScale state update on its own render
+      // pass — so the recenter effect would read the prior autoScale
+      // and lock in a wrong scrollLeft. Doing both in one place
+      // eliminates the cross-effect race entirely.
+      if (
+        viewMode === 'strip' &&
+        (explicitStitchClickRef.current || !hasCenteredOnceRef.current)
+      ) {
+        explicitStitchClickRef.current = false
+        const stripW = CANVAS.W * post.slides.length * s
+        const stripH = CANVAS.H * s
+        // Mirror the same `stripLeft`/`stripTop` choice the JSX makes
+        // for this scale, so the effective scroll target reduces to
+        // 0 when the strip is small enough to be anchored visually.
+        const visibleCenterX = panels.left + (el.clientWidth - panels.left - panels.right) / 2
+        const visibleCenterY = el.clientHeight / 2
+        const stripLeftNow =
+          stripW < el.clientWidth - panels.left - panels.right
+            ? Math.max(PAD, visibleCenterX - stripW / 2)
+            : PAD
+        const stripTopNow =
+          stripH < el.clientHeight
+            ? Math.max(PAD, visibleCenterY - stripH / 2)
+            : PAD
+        const targetLeft = Math.max(0, stripLeftNow + stripW / 2 - visibleCenterX)
+        const targetTop = Math.max(0, stripTopNow + stripH / 2 - visibleCenterY)
+        scheduleScrollApply(el, targetLeft, targetTop, () => {
+          hasCenteredOnceRef.current = true
+        })
+      }
     }
     update()
     const ro = new ResizeObserver(update)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [viewMode, post.slides.length])
+  }, [viewMode, post.slides.length, recenterTick])
 
   // Whenever the user enters carousel mode, drop any manual zoom so
   // the slide refits cleanly, and jump back to the first slide so the
@@ -96,7 +216,7 @@ export function Canvas() {
         e.preventDefault()
         const base = scaleRef.current
         const factor = e.deltaY < 0 ? 1.04 : 1 / 1.04
-        const next = Math.max(0.05, Math.min(3, base * factor))
+        const next = Math.max(MIN_ZOOM, Math.min(3, base * factor))
         // Capture the content-space coord currently under the cursor.
         // The useLayoutEffect on userZoom/autoScale re-derives the
         // scroll position so this content point stays under the
@@ -172,7 +292,7 @@ export function Canvas() {
         // Read scale LIVE, not from the stale closure captured when
         // this effect mounted.
         const base = scaleRef.current
-        const next = Math.max(0.05, Math.min(3, base * factor))
+        const next = Math.max(MIN_ZOOM, Math.min(3, base * factor))
         preserveCenterForSlideRef.current = currentFromStore()
         setUserZoom(next)
         editor.setViewMode('strip')
@@ -227,6 +347,33 @@ export function Canvas() {
     setDragOffsetX(0)
   }, [currentSlide])
 
+  // Carousel: ← / → navigate slides. Suppress when the user is
+  // typing in an input/textarea/contenteditable so layer labels and
+  // text fields aren't hijacked. Wraps current slide index against
+  // the post boundary; no-op at the edges.
+  useEffect(() => {
+    if (viewMode !== 'carousel') return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+      const t = document.activeElement
+      if (
+        t instanceof HTMLInputElement ||
+        t instanceof HTMLTextAreaElement ||
+        (t instanceof HTMLElement && t.isContentEditable)
+      ) {
+        return
+      }
+      e.preventDefault()
+      const cur = editor.state.currentSlide
+      if (e.key === 'ArrowLeft' && cur > 0) editor.setCurrentSlide(cur - 1)
+      else if (e.key === 'ArrowRight' && cur < post.slides.length - 1) {
+        editor.setCurrentSlide(cur + 1)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [viewMode, post.slides.length])
+
   // Width/height of the rendered strip (post-scale). We surround it
   // with generous breathing room on every side so pan feels free.
   const renderedW = CANVAS.W * post.slides.length * scale
@@ -234,6 +381,24 @@ export function Canvas() {
   // Each side of breathing room = one viewport-height/width roughly,
   // so the user can always drag layers past the artboard.
   const PAD = 400
+  // When the rendered strip is smaller than the visible band between
+  // panels, anchor its left/top so the visible center coincides with
+  // the strip center at scrollLeft=0 (otherwise the math wants
+  // negative scroll, which gets clamped, leaving the strip stuck to
+  // the left/top of the viewport). Falls back to PAD when the strip
+  // exceeds the visible band — scroll then handles centering.
+  const _panels = panelMass()
+  const _visibleW = wrapDims.w - _panels.left - _panels.right
+  const _visibleCenterX = _panels.left + _visibleW / 2
+  const _visibleCenterY = wrapDims.h / 2
+  const stripLeft =
+    wrapDims.w > 0 && renderedW < _visibleW
+      ? Math.max(PAD, _visibleCenterX - renderedW / 2)
+      : PAD
+  const stripTop =
+    wrapDims.h > 0 && renderedH < wrapDims.h
+      ? Math.max(PAD, _visibleCenterY - renderedH / 2)
+      : PAD
 
   // Center the first slide in the viewport on mount and whenever the
   // post structure or auto-fit scale changes (viewport resize, slide
@@ -262,9 +427,29 @@ export function Canvas() {
     | { cx: number; cy: number; contentX: number; contentY: number }
     | null
   >(null)
+
+  // When the slide count changes (user added or removed slides) the
+  // old scroll position is meaningless — autoScale recomputes for
+  // the new total width, but scrollLeft still points at the old
+  // geometry, leaving the strip visually off-center. Force a
+  // re-center the next time the layout effect runs. Tracks previous
+  // length so we only trigger on actual changes, not every render.
+  const prevSlideCountRef = useRef(post.slides.length)
+  useEffect(() => {
+    if (prevSlideCountRef.current !== post.slides.length) {
+      prevSlideCountRef.current = post.slides.length
+      explicitStitchClickRef.current = true
+      setUserZoom(null)
+      setRecenterTick((t) => t + 1)
+    }
+  }, [post.slides.length])
   useLayoutEffect(() => {
     const el = wrapRef.current
     if (!el || viewMode !== 'strip') return
+    // Wait for the real autoScale measurement before centering;
+    // running with the default value locks in a wrong scrollLeft
+    // and the post-measure pass is then blocked by hasCenteredOnceRef.
+    if (autoScale === 0) return
 
     // Path 0: zoom-to-cursor. Re-derive scroll so the content point
     // captured by the wheel handler stays under the same viewport
@@ -298,19 +483,10 @@ export function Canvas() {
       return
     }
 
-    // Path 2: explicit Stitched button or first mount — fit + center
-    // on slide 0.
-    const shouldRecenter = explicitStitchClickRef.current || !hasCenteredOnceRef.current
-    if (!shouldRecenter) return
-    explicitStitchClickRef.current = false
-    hasCenteredOnceRef.current = true
-    const viewW = el.clientWidth
-    const viewH = el.clientHeight
-    const slideW = CANVAS.W * autoScale
-    const slideH = CANVAS.H * autoScale
-    el.scrollLeft = Math.max(0, PAD - (viewW - slideW) / 2)
-    el.scrollTop = Math.max(0, PAD - (viewH - slideH) / 2)
-  }, [autoScale, userZoom, viewMode, post.slides.length])
+    // Path 2 (Stitched-click + first-mount centering) lives in the
+    // autoScale measurement effect now — same place that owns the
+    // freshly-measured scale, so there's no cross-effect race.
+  }, [autoScale, userZoom, viewMode, post.slides.length, recenterTick])
 
   return (
     <div
@@ -332,11 +508,13 @@ export function Canvas() {
           cursor: panActive ? 'grabbing' : 'grab',
         }}
         onMouseDown={(e) => {
-          if (e.target !== e.currentTarget) return
+          // Layer wrappers stopPropagation, so anything reaching here
+          // is a click on empty canvas — deselect + start pan. We
+          // don't gate on `e.target === e.currentTarget` because the
+          // padded inner content div fills the wrapper, so any click
+          // on the empty pad area surrounding the slides bubbles up
+          // with `e.target` set to that inner div, not the wrapper.
           editor.select(null)
-          // Drag-pan: if the user presses on the empty canvas area,
-          // let them drag to scroll in any direction. Ignored when
-          // they click on a layer (that event doesn't bubble here).
           if (viewMode !== 'strip') return
           const el = wrapRef.current
           if (!el) return
@@ -365,7 +543,15 @@ export function Canvas() {
             ? {
                 position: 'absolute',
                 top: '50%',
-                left: '50%',
+                // Panel-aware horizontal anchor: the carousel midpoint
+                // sits at the center of the visible band between the
+                // sidebar and right panel (not the raw viewport
+                // center). On md- screens panelMass() returns 0 and
+                // this collapses back to 50%.
+                left:
+                  wrapDims.w > 0
+                    ? `${_panels.left + (wrapDims.w - _panels.left - _panels.right) / 2}px`
+                    : '50%',
                 width: CANVAS.W * post.slides.length,
                 height: CANVAS.H,
                 transform: `translate(-50%, -50%) scale(${scale}) translateX(${stripTranslate + dragOffsetX}px)`,
@@ -378,9 +564,13 @@ export function Canvas() {
               }
             : {
                 // Total scrollable content = strip + breathing room on
-                // every side so pan is free in both axes.
-                width: renderedW + PAD * 2,
-                height: renderedH + PAD * 2,
+                // every side so pan is free in both axes. We size off
+                // stripLeft/stripTop (which expand when the strip is
+                // small enough to be visually centered without scroll)
+                // so the inner div is wide enough for the chosen
+                // anchor position.
+                width: stripLeft + renderedW + PAD,
+                height: stripTop + renderedH + PAD,
               }
         }
         onMouseDown={(e) => {
@@ -395,14 +585,22 @@ export function Canvas() {
             viewMode === 'strip'
               ? {
                   position: 'absolute',
-                  top: PAD,
-                  left: PAD,
+                  top: stripTop,
+                  left: stripLeft,
                   width: CANVAS.W * post.slides.length,
                   height: CANVAS.H,
                   transform: `scale(${scale})`,
                   transformOrigin: 'top left',
+                  // Clip layers to the strip rect so the editor matches
+                  // what export produces. The render route screenshots
+                  // a single 1000×1250 #nw-slide-root with its own
+                  // overflow:hidden, so any layer poking past the
+                  // canvas just disappears in the PNG. Without this
+                  // clip the editor showed phantom content that the
+                  // user thought would ship — confusing.
+                  overflow: 'hidden',
                 }
-              : { position: 'absolute', inset: 0 }
+              : { position: 'absolute', inset: 0, overflow: 'hidden' }
           }
         >
         {/* World-space dot grid — sibling of the slide strip, rendered
@@ -442,32 +640,33 @@ export function Canvas() {
         </div>
       </div>
 
-      {/* Carousel arrows — anchored near the slide edges, not the
-          viewport edges. Now that Canvas fills the full viewport (with
-          sidebar/right panel overlaying), pinning arrows to left:16 /
-          right:16 buried them under the panels. Pull them next to the
-          actual slide by offsetting from horizontal center by half the
-          rendered slide width plus a gap. */}
+      </div>
+
+      {/* Carousel arrows + dots — siblings of the wrap so their
+          absolute positioning is relative to the outer
+          viewport-pinned container, not the scroll container (whose
+          scrollLeft would otherwise shift these chrome elements). */}
       {viewMode === 'carousel' && post.slides.length > 1 && (
         <>
           <ArrowButton
             side="left"
             disabled={currentSlide === 0}
             scale={scale}
+            anchorX={_visibleCenterX}
             onClick={() => editor.setCurrentSlide(currentSlide - 1)}
           />
           <ArrowButton
             side="right"
             disabled={currentSlide === post.slides.length - 1}
             scale={scale}
+            anchorX={_visibleCenterX}
             onClick={() => editor.setCurrentSlide(currentSlide + 1)}
           />
-          {/* Pagination dots — cream pill so they stay visible on dark
-              slides. Uses the same surface tokens as every other
-              floating card in the app. */}
           <div
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full"
+            className="absolute bottom-6 flex items-center gap-1.5 rounded-full"
             style={{
+              left: wrapDims.w > 0 ? _visibleCenterX : '50%',
+              transform: 'translateX(-50%)',
               background: 'var(--nw-admin-surface-inner)',
               border: '1px solid var(--nw-admin-surface-border)',
               boxShadow: '0 2px 8px rgba(24,18,15,0.06)',
@@ -492,14 +691,17 @@ export function Canvas() {
           </div>
         </>
       )}
-      </div>
 
       {/* Floating view-mode toggle — sits as a sibling to the scroll
           container so it stays pinned in the viewport regardless of
-          scroll/zoom inside the canvas. */}
+          scroll/zoom inside the canvas. Anchored to the visible-band
+          center so it sits above the slide, not above the panels. */}
       <div
-        className="absolute top-4 left-1/2 z-30 pointer-events-none"
-        style={{ transform: 'translateX(-50%)' }}
+        className="absolute top-4 z-30 pointer-events-none"
+        style={{
+          left: wrapDims.w > 0 ? _visibleCenterX : '50%',
+          transform: 'translateX(-50%)',
+        }}
       >
         <div
           className="relative flex items-center rounded-full pointer-events-auto"
@@ -526,10 +728,13 @@ export function Canvas() {
           <button
             type="button"
             onClick={() => {
-              // Explicit click → fit zoom + re-center.
+              // Explicit click → fit zoom + re-center. Bump the tick
+              // so the layout effect re-runs even when viewMode is
+              // already 'strip' (clicking Overview while in Overview).
               setUserZoom(null)
               explicitStitchClickRef.current = true
               editor.setViewMode('strip')
+              setRecenterTick((t) => t + 1)
             }}
             className="relative z-10 text-sm rounded-full px-4"
             style={{
@@ -539,7 +744,7 @@ export function Canvas() {
               minWidth: 100,
             }}
           >
-            Stitched
+            Overview
           </button>
           <button
             type="button"
@@ -563,7 +768,16 @@ export function Canvas() {
           offset = 16 + 280 + 8 = 304px from the viewport's right edge. */}
       {viewMode === 'strip' && userZoom !== null && (
         <button
-          onClick={() => setUserZoom(null)}
+          onClick={() => {
+            // Reset = same behavior as clicking the Stitched toggle
+            // (fit all slides, centered both axes, with breathing
+            // room around the strip). Both buttons should produce
+            // the same view, otherwise there are two ways to "go
+            // home" and they'd diverge.
+            setUserZoom(null)
+            explicitStitchClickRef.current = true
+            setRecenterTick((t) => t + 1)
+          }}
           className="fixed top-4 z-40 px-3 text-[11px] font-medium rounded-full transition-colors"
           style={{
             right: 304,
@@ -574,9 +788,9 @@ export function Canvas() {
           }}
           onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--nw-admin-hover)' }}
           onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--nw-admin-surface-inner)' }}
-          title="Reset zoom to fit"
+          title="Reset zoom — fit current slide, stay in stitched"
         >
-          {Math.round((userZoom / autoScale) * 100)}% · reset
+          {Math.round(userZoom * 100)}% · reset
         </button>
       )}
     </div>
@@ -827,14 +1041,20 @@ function ArrowButton({
   side,
   disabled,
   scale,
+  anchorX,
   onClick,
 }: {
   side: 'left' | 'right'
   disabled?: boolean
   // Current canvas scale — the slide width at render is CANVAS.W *
   // scale, so half of that is how far the slide edge sits from the
-  // viewport center. We anchor the arrow just beyond that edge.
+  // anchor center. We anchor the arrow just beyond that edge.
   scale: number
+  // X coord (viewport pixels) the arrows orbit around. Matches the
+  // slide's horizontal midpoint (panel-aware), not the raw viewport
+  // center, so arrows stay flanking the slide regardless of which
+  // panels are open.
+  anchorX: number
   onClick: () => void
 }) {
   const ARROW = 44
@@ -845,15 +1065,15 @@ function ArrowButton({
   const offset = halfSlide + GAP
   const positional: React.CSSProperties =
     side === 'left'
-      ? { left: `calc(50% - ${offset + ARROW}px)` }
-      : { left: `calc(50% + ${offset}px)` }
+      ? { left: anchorX - offset - ARROW }
+      : { left: anchorX + offset }
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       aria-label={side === 'left' ? 'Previous slide' : 'Next slide'}
-      className="absolute top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full transition-all"
+      className="absolute top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full transition-colors"
       style={{
         ...positional,
         width: ARROW,

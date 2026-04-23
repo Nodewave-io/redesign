@@ -68,27 +68,36 @@ export class NotFoundError extends Error {
 
 // ─── Posts ────────────────────────────────────────────────────────
 
+// Includes the parsed slides JSON so the home grid can render a live
+// preview of slide 0 (text + layers) instead of just metadata.
 export type PostSummary = Pick<
   MediaPost,
-  'id' | 'title' | 'theme' | 'page_count' | 'updated_at' | 'thumbnail_url'
->
+  'id' | 'title' | 'theme' | 'page_count' | 'aspect_ratio' | 'updated_at' | 'thumbnail_url'
+> & {
+  slides: { slides: Slide[]; layers: Layer[] }
+}
 
 export function listPosts(): PostSummary[] {
   const rows = getDb()
     .prepare<[], PostSummaryRow>(
-      `SELECT id, title, theme, page_count, updated_at, thumbnail_url
+      `SELECT id, title, theme, page_count, aspect_ratio, updated_at, thumbnail_url, slides
          FROM media_posts
          ORDER BY updated_at DESC`,
     )
     .all()
-  return rows.map((r) => ({
-    id: r.id,
-    title: r.title,
-    theme: r.theme,
-    page_count: r.page_count,
-    updated_at: r.updated_at,
-    thumbnail_url: r.thumbnail_url,
-  }))
+  return rows.map((r) => {
+    const { slides, layers } = parseSlidesJson(r.slides)
+    return {
+      id: r.id,
+      title: r.title,
+      theme: r.theme,
+      page_count: r.page_count,
+      aspect_ratio: r.aspect_ratio,
+      updated_at: r.updated_at,
+      thumbnail_url: r.thumbnail_url,
+      slides: { slides, layers },
+    }
+  })
 }
 
 export function getPost(id: string): MediaPost {
@@ -200,17 +209,34 @@ export function updatePost(
     }
     if (cols.length === 0) return  // no-op patch; still return current row below
 
-    // Bump updated_at explicitly from JS so it strictly advances.
-    // Pass the CURRENT row's updated_at as the floor so the new value
-    // is guaranteed > current even when the DB's default-generated
-    // timestamp was issued in the same ms as JS's Date.now().
-    const currentTs = db
-      .prepare<[string], { updated_at: string }>(
-        `SELECT updated_at FROM media_posts WHERE id = ?`,
-      )
-      .get(id)?.updated_at
-    cols.push('updated_at = @updated_at')
-    params.updated_at = nowMonotonic(currentTs)
+    // Thumbnail-only updates are background, fire-and-forget writes
+    // (the export route persists the first slide as a thumbnail).
+    // They must NOT bump updated_at — otherwise the editor's
+    // in-memory expected_updated_at goes stale and the very next
+    // user save fails with a 409. Content edits still advance the
+    // timestamp normally.
+    const isThumbnailOnly =
+      patch.thumbnail_url !== undefined &&
+      patch.title === undefined &&
+      patch.page_count === undefined &&
+      patch.aspect_ratio === undefined &&
+      patch.theme === undefined &&
+      patch.slides === undefined &&
+      patch.layers === undefined
+    if (!isThumbnailOnly) {
+      // Bump updated_at explicitly from JS so it strictly advances.
+      // Pass the CURRENT row's updated_at as the floor so the new
+      // value is guaranteed > current even when the DB's
+      // default-generated timestamp was issued in the same ms as
+      // JS's Date.now().
+      const currentTs = db
+        .prepare<[string], { updated_at: string }>(
+          `SELECT updated_at FROM media_posts WHERE id = ?`,
+        )
+        .get(id)?.updated_at
+      cols.push('updated_at = @updated_at')
+      params.updated_at = nowMonotonic(currentTs)
+    }
 
     const sql = `UPDATE media_posts SET ${cols.join(', ')} WHERE id = @id`
     const info = db.prepare(sql).run(params)
@@ -328,7 +354,7 @@ export function createAsset(input: NewAssetInput): MediaAsset {
 export type AssetPatch = Partial<
   Pick<
     MediaAsset,
-    'name' | 'description' | 'usage_notes' | 'categories' | 'tags'
+    'name' | 'description' | 'usage_notes' | 'categories' | 'tags' | 'source_code' | 'width' | 'height'
   >
 >
 
@@ -354,6 +380,18 @@ export function updateAsset(id: string, patch: AssetPatch): MediaAsset {
   if (patch.tags !== undefined) {
     cols.push('tags = @tags')
     params.tags = JSON.stringify(patch.tags)
+  }
+  if (patch.source_code !== undefined) {
+    cols.push('source_code = @source_code')
+    params.source_code = patch.source_code
+  }
+  if (patch.width !== undefined) {
+    cols.push('width = @width')
+    params.width = patch.width
+  }
+  if (patch.height !== undefined) {
+    cols.push('height = @height')
+    params.height = patch.height
   }
   if (cols.length === 0) return getAsset(id)
   const info = getDb()
@@ -387,8 +425,10 @@ type PostSummaryRow = {
   title: string
   theme: Theme
   page_count: number
+  aspect_ratio: string
   updated_at: string
   thumbnail_url: string | null
+  slides: string
 }
 
 type PostRow = {
@@ -430,18 +470,36 @@ type AssetRow = {
 }
 
 function postFromRow(row: PostRow): MediaPost {
-  const parsed = JSON.parse(row.slides) as { slides?: Slide[]; layers?: Layer[] }
+  const { slides, layers } = parseSlidesJson(row.slides)
   return {
     id: row.id,
     title: row.title,
     page_count: row.page_count,
     aspect_ratio: row.aspect_ratio,
     theme: row.theme,
-    slides: parsed.slides ?? [],
-    layers: parsed.layers ?? [],
+    slides,
+    layers,
     thumbnail_url: row.thumbnail_url,
     created_at: row.created_at,
     updated_at: row.updated_at,
+  }
+}
+
+// Parses the `slides` JSON column. Older rows (written by the editor's
+// legacy save path) double-wrapped: `{slides: {slides, layers}, layers: []}`.
+// Detect and unwrap so MCP tools and the home preview see a flat shape.
+function parseSlidesJson(raw: string): { slides: Slide[]; layers: Layer[] } {
+  const parsed = JSON.parse(raw) as {
+    slides?: Slide[] | { slides?: Slide[]; layers?: Layer[] }
+    layers?: Layer[]
+  }
+  const inner = parsed?.slides
+  if (inner && !Array.isArray(inner) && 'slides' in inner) {
+    return { slides: inner.slides ?? [], layers: inner.layers ?? [] }
+  }
+  return {
+    slides: (Array.isArray(inner) ? inner : []) as Slide[],
+    layers: parsed?.layers ?? [],
   }
 }
 

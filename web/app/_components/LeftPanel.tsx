@@ -44,30 +44,39 @@ function AssetsPanel() {
 
   const load = async () => {
     setLoading(true)
-    const q = supabase.from('media_assets').select('*').order('created_at', { ascending: false })
-    const { data } =
-      category === 'all' ? await q : await q.contains('categories', [category])
+    // Always fetch the full list — filter client-side. The Supabase
+    // shim's `.contains()` is a no-op so server-side category filtering
+    // never worked anyway, and the asset count is small enough (a few
+    // dozen) that loading once and slicing in JS is faster than any
+    // round-trip would be.
+    const { data } = await supabase
+      .from('media_assets')
+      .select('*')
+      .order('created_at', { ascending: false })
     setAssets((data as MediaAsset[]) ?? [])
     setLoading(false)
   }
   useEffect(() => {
     load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category])
+  }, [])
 
   const onInsert = (asset: MediaAsset) => {
     const slideIndex = 0
     if (asset.kind === 'component') {
-      // Library components are pre-designed for the full 1080×1350
-      // frame, so we drop them in at canvas size. Claude can resize
-      // later via MCP once the user asks to stack more on the slide.
+      // Drop the component at its saved native dimensions (matches
+      // the size of the layer it was authored from). Centered on the
+      // slide so the user can see it immediately. Falls back to the
+      // full canvas for older assets that pre-date the native-dim
+      // save flow.
+      const w = asset.width && asset.width > 0 ? asset.width : CANVAS.W
+      const h = asset.height && asset.height > 0 ? asset.height : CANVAS.H
       editor.addLayer({
         kind: 'code',
         slideIndex,
-        x: 0,
-        y: 0,
-        w: CANVAS.W,
-        h: CANVAS.H,
+        x: Math.round((CANVAS.W - w) / 2),
+        y: Math.round((CANVAS.H - h) / 2),
+        w,
+        h,
         source: asset.source_code ?? '<div style={{ color: "red" }}>Empty component</div>',
       })
       return
@@ -102,14 +111,37 @@ function AssetsPanel() {
   }
 
   const q = search.trim().toLowerCase()
-  const shown = q
-    ? assets.filter(
-        (a) =>
-          a.name.toLowerCase().includes(q) ||
+  // Filter pipeline: category first (if not "all"), then text search.
+  const shown = assets
+    .filter((a) =>
+      category === 'all' ? true : (a.categories ?? []).includes(category),
+    )
+    .filter((a) =>
+      !q
+        ? true
+        : a.name.toLowerCase().includes(q) ||
           (a.description ?? '').toLowerCase().includes(q) ||
-          a.tags.some((t) => t.toLowerCase().includes(q)),
-      )
-    : assets
+          (a.tags ?? []).some((t) => t.toLowerCase().includes(q)),
+    )
+
+  // Build the dropdown from categories actually in use, ranked by
+  // count. Falls back to SUGGESTED_CATEGORIES for the empty-library
+  // case so the user sees what's possible. Same approach the
+  // /assets page uses (consistent UX between the two filters).
+  const categoryOptions = (() => {
+    const counts = new Map<string, number>()
+    for (const a of assets) {
+      for (const c of a.categories ?? []) {
+        counts.set(c, (counts.get(c) ?? 0) + 1)
+      }
+    }
+    if (counts.size === 0) {
+      return SUGGESTED_CATEGORIES.map((c) => [c, 0] as [string, number])
+    }
+    return Array.from(counts.entries()).sort(
+      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
+    )
+  })()
 
   return (
     <div className="flex flex-col h-full">
@@ -128,9 +160,10 @@ function AssetsPanel() {
           onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(24,18,15,0.12)' }}
         >
           <option value="all">All categories</option>
-          {SUGGESTED_CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {c.charAt(0).toUpperCase() + c.slice(1)}
+          {categoryOptions.map(([name, count]) => (
+            <option key={name} value={name}>
+              {name.charAt(0).toUpperCase() + name.slice(1)}
+              {count > 0 ? ` (${count})` : ''}
             </option>
           ))}
         </select>
@@ -180,7 +213,7 @@ function AssetsPanel() {
                 title={a.description || a.name}
               >
                 {a.kind === 'component' ? (
-                  <ScaledComponent source={a.source_code ?? ''} />
+                  <ScaledComponent source={a.source_code ?? ''} nativeW={a.width} nativeH={a.height} />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -225,37 +258,50 @@ function AssetsPanel() {
 // designed for the full 1000×1250 canvas; at a 90×90 tile that's an
 // 11× downscale. Same technique as the overview's FirstSlidePreview —
 // render at native size, transform-scale to fit, overflow-hidden.
-function ScaledComponent({ source }: { source: string }) {
+function ScaledComponent({
+  source,
+  nativeW,
+  nativeH,
+}: {
+  source: string
+  nativeW?: number | null
+  nativeH?: number | null
+}) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(0)
+  const W = nativeW && nativeW > 0 ? nativeW : CANVAS.W
+  const H = nativeH && nativeH > 0 ? nativeH : CANVAS.H
 
   useLayoutEffect(() => {
     const el = wrapRef.current
     if (!el) return
     const update = () => {
-      const ratioW = el.clientWidth / CANVAS.W
-      const ratioH = el.clientHeight / CANVAS.H
-      // Use `min` here (not `max` like the full-slide preview) so the
-      // whole component fits inside the square — we'd rather see
-      // letterboxing than crop the edges off a chart.
-      setScale(Math.min(ratioW, ratioH))
+      const ratioW = el.clientWidth / W
+      const ratioH = el.clientHeight / H
+      const MARGIN = 0.86
+      setScale(Math.min(ratioW, ratioH) * MARGIN)
     }
     update()
     const ro = new ResizeObserver(update)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [])
+  }, [W, H])
 
   return (
     <div
       ref={wrapRef}
       className="relative w-full h-full overflow-hidden flex items-center justify-center"
+      // Auto-pick a backdrop matching the component's design tone
+      // (light components → cream, otherwise dark). Same heuristic
+      // the /assets page uses, kept inline because LeftPanel is
+      // imported into the editor before the assets page mounts.
+      style={{ background: pickPanelBg(source) }}
     >
       {scale > 0 && (
         <div
           style={{
-            width: CANVAS.W,
-            height: CANVAS.H,
+            width: W,
+            height: H,
             transform: `scale(${scale})`,
             transformOrigin: 'center center',
             flexShrink: 0,
@@ -266,4 +312,16 @@ function ScaledComponent({ source }: { source: string }) {
       )}
     </div>
   )
+}
+
+function pickPanelBg(source: string): string {
+  const m = source.match(/background\s*:\s*['"]?([^,'"}]+)/)
+  if (!m) return '#0A0A0A'
+  const v = m[1].toLowerCase()
+  const isLight =
+    v.includes('#fff') ||
+    v.includes('#f5efe6') ||
+    v.includes('rgba(255') ||
+    v.includes('rgb(255')
+  return isLight ? '#F5EFE6' : '#0A0A0A'
 }

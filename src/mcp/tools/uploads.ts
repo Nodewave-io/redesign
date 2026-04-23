@@ -15,9 +15,68 @@ import { withLogging } from '../log.js'
 import { textJson } from '../write-helpers.js'
 import { createAsset } from '../../db/repo.js'
 import { removeStoredFile, saveAssetBytes } from '../../db/storage.js'
+import { launchBrowser } from '../../browser.js'
 
 // Safety cap — protects against a Claude typo fetching a 500 MB ISO.
 const MAX_BYTES = 20 * 1024 * 1024
+
+// SSRF guard. Both upload tools accept arbitrary URLs from Claude (or
+// from a model talking to Claude), and we don't want them used as a
+// pivot into the user's loopback / RFC1918 / cloud metadata. Only
+// public http(s) targets resolve.
+function assertPublicHttpUrl(input: string): URL {
+  let url: URL
+  try {
+    url = new URL(input)
+  } catch {
+    throw new Error(`invalid URL: ${input}`)
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error(`only http(s) URLs are allowed (got ${url.protocol})`)
+  }
+  if (isPrivateHost(url.hostname)) {
+    throw new Error(
+      `URL host ${url.hostname} resolves to a private/loopback range and is blocked`,
+    )
+  }
+  return url
+}
+
+// Reject obvious local/private hostnames + IP literals. We do NOT
+// resolve DNS here (that would still be vulnerable to rebinding) —
+// the policy is "no IP literal in private ranges, no localhost-y
+// hostname". Cloud metadata IP (169.254.169.254) is link-local.
+function isPrivateHost(host: string): boolean {
+  // URL.hostname keeps the surrounding `[...]` for IPv6 literals on
+  // some Node versions; strip so the inner-address checks compare
+  // against bare addresses like `::1`.
+  const h = host.toLowerCase().replace(/^\[/, '').replace(/\]$/, '')
+  if (h === 'localhost' || h === 'localhost.' || h.endsWith('.localhost')) return true
+  if (h === '0.0.0.0' || h === '::') return true
+  // IPv4 literal?
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h)
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])]
+    if (a === 10) return true
+    if (a === 127) return true
+    if (a === 0) return true
+    if (a === 169 && b === 254) return true            // link-local + AWS/GCP metadata
+    if (a === 172 && b >= 16 && b <= 31) return true
+    if (a === 192 && b === 168) return true
+    if (a === 100 && b >= 64 && b <= 127) return true  // CGNAT
+    if (a >= 224) return true                          // multicast/reserved
+  }
+  // IPv6 literal? Brackets stripped by `URL.hostname`.
+  if (h.includes(':')) {
+    if (h === '::1') return true
+    if (h.startsWith('fe80:') || h.startsWith('fc') || h.startsWith('fd')) return true
+    if (h.startsWith('::ffff:')) {
+      // IPv4-mapped IPv6. Recurse on the v4 portion.
+      return isPrivateHost(h.slice('::ffff:'.length))
+    }
+  }
+  return false
+}
 
 export function registerUploadTools(server: McpServer): void {
   server.registerTool(
@@ -42,7 +101,8 @@ export function registerUploadTools(server: McpServer): void {
         categories?: string[]
         tags?: string[]
       }) => {
-        const res = await fetch(args.url)
+        const safe = assertPublicHttpUrl(args.url)
+        const res = await fetch(safe.href)
         if (!res.ok) throw new Error(`download failed: ${res.status} ${res.statusText}`)
         const contentLength = Number(res.headers.get('content-length') ?? 0)
         if (contentLength && contentLength > MAX_BYTES) {
@@ -99,32 +159,15 @@ export function registerUploadTools(server: McpServer): void {
         categories?: string[]
         tags?: string[]
       }) => {
+        const safe = assertPublicHttpUrl(args.url)
         const viewportW = args.width ?? 1280
         const viewportH = args.height ?? 800
 
-        // puppeteer is resolved from the host nw-site install for now;
-        // once the standalone package ships, list it as a peer dep or
-        // ship the chromium locator in the CLI.
-        const { default: puppeteer } = (await import('puppeteer')) as unknown as {
-          default: {
-            launch: (opts: unknown) => Promise<{
-              newPage: () => Promise<{
-                setDefaultTimeout: (n: number) => void
-                goto: (u: string, o: unknown) => Promise<unknown>
-                waitForSelector: (s: string, o: unknown) => Promise<unknown>
-                $: (s: string) => Promise<{
-                  boundingBox: () => Promise<{ width: number; height: number } | null>
-                  screenshot: (o: unknown) => Promise<Uint8Array>
-                } | null>
-                screenshot: (o: unknown) => Promise<Uint8Array>
-              }>
-              close: () => Promise<void>
-            }>
-          }
-        }
-        const browser = await puppeteer.launch({
-          headless: true,
-          defaultViewport: { width: viewportW, height: viewportH, deviceScaleFactor: 2 },
+        // Use the shared launcher — it handles Chromium auto-install
+        // under ~/.redesign/chromium/ and uses puppeteer-core (already
+        // a runtime dep of this package).
+        const browser = await launchBrowser({
+          viewport: { width: viewportW, height: viewportH, deviceScaleFactor: 2 },
         })
         let bytes: Buffer
         let finalW = viewportW
@@ -132,9 +175,16 @@ export function registerUploadTools(server: McpServer): void {
         try {
           const page = await browser.newPage()
           page.setDefaultTimeout(45_000)
-          await page.goto(args.url, { waitUntil: 'networkidle0' })
+          await page.goto(safe.href, { waitUntil: 'networkidle0' })
           if (args.waitFor) {
-            await page.waitForSelector(args.waitFor, { timeout: 30_000 })
+            // launchBrowser doesn't expose waitForSelector — emulate it
+            // via waitForFunction on document.querySelector so we don't
+            // expand the PageHandle surface for one tool.
+            const sel = JSON.stringify(args.waitFor)
+            await page.waitForFunction(
+              `document.querySelector(${sel}) !== null`,
+              { timeout: 30_000 },
+            )
           }
           if (args.selector) {
             const el = await page.$(args.selector)

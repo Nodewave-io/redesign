@@ -423,15 +423,15 @@ function FirstSlidePreview({ post }: { post: PostRow }) {
   const slides = post.slides?.slides ?? []
   const layers = post.slides?.layers ?? []
   const slide0 = slides[0]
-  // Anything that lives on slide 0 or bleeds in via `spans`.
+  // A layer touches slide 0 if its [slideIndex, slideIndex+spans) range
+  // covers index 0. Layers with negative slideIndex bleed in from the
+  // left; spans>1 bleed across multiple slides.
   const onFirst = layers.filter((l) => {
     const span = l.spans ?? 1
-    return l.slideIndex === 0 && 0 < span + l.slideIndex
-      ? true
-      : l.slideIndex <= 0 && 0 < l.slideIndex + span
+    return l.slideIndex <= 0 && l.slideIndex + span > 0
   })
 
-  const empty = !slide0 || layers.length === 0
+  const empty = !slide0 || onFirst.length === 0
 
   return (
     <div

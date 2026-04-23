@@ -200,17 +200,35 @@ export function updatePost(
     }
     if (cols.length === 0) return  // no-op patch; still return current row below
 
-    // Bump updated_at explicitly from JS so it strictly advances.
-    // Pass the CURRENT row's updated_at as the floor so the new value
-    // is guaranteed > current even when the DB's default-generated
-    // timestamp was issued in the same ms as JS's Date.now().
-    const currentTs = db
-      .prepare<[string], { updated_at: string }>(
-        `SELECT updated_at FROM media_posts WHERE id = ?`,
-      )
-      .get(id)?.updated_at
-    cols.push('updated_at = @updated_at')
-    params.updated_at = nowMonotonic(currentTs)
+    // Thumbnail-only updates are background, fire-and-forget writes
+    // (the export route persists the first slide as a thumbnail).
+    // They must NOT bump updated_at — otherwise the editor's
+    // in-memory expected_updated_at goes stale and the very next
+    // user save fails with a 409. Content edits still advance
+    // normally. Mirror the schema trigger which now skips the
+    // thumbnail-only auto-touch case.
+    const isThumbnailOnly =
+      patch.thumbnail_url !== undefined &&
+      patch.title === undefined &&
+      patch.page_count === undefined &&
+      patch.aspect_ratio === undefined &&
+      patch.theme === undefined &&
+      patch.slides === undefined &&
+      patch.layers === undefined
+    if (!isThumbnailOnly) {
+      // Bump updated_at explicitly from JS so it strictly advances.
+      // Pass the CURRENT row's updated_at as the floor so the new
+      // value is guaranteed > current even when the DB's
+      // default-generated timestamp was issued in the same ms as
+      // JS's Date.now().
+      const currentTs = db
+        .prepare<[string], { updated_at: string }>(
+          `SELECT updated_at FROM media_posts WHERE id = ?`,
+        )
+        .get(id)?.updated_at
+      cols.push('updated_at = @updated_at')
+      params.updated_at = nowMonotonic(currentTs)
+    }
 
     const sql = `UPDATE media_posts SET ${cols.join(', ')} WHERE id = @id`
     const info = db.prepare(sql).run(params)
@@ -328,7 +346,7 @@ export function createAsset(input: NewAssetInput): MediaAsset {
 export type AssetPatch = Partial<
   Pick<
     MediaAsset,
-    'name' | 'description' | 'usage_notes' | 'categories' | 'tags'
+    'name' | 'description' | 'usage_notes' | 'categories' | 'tags' | 'source_code' | 'width' | 'height'
   >
 >
 
@@ -354,6 +372,18 @@ export function updateAsset(id: string, patch: AssetPatch): MediaAsset {
   if (patch.tags !== undefined) {
     cols.push('tags = @tags')
     params.tags = JSON.stringify(patch.tags)
+  }
+  if (patch.source_code !== undefined) {
+    cols.push('source_code = @source_code')
+    params.source_code = patch.source_code
+  }
+  if (patch.width !== undefined) {
+    cols.push('width = @width')
+    params.width = patch.width
+  }
+  if (patch.height !== undefined) {
+    cols.push('height = @height')
+    params.height = patch.height
   }
   if (cols.length === 0) return getAsset(id)
   const info = getDb()
@@ -430,15 +460,31 @@ type AssetRow = {
 }
 
 function postFromRow(row: PostRow): MediaPost {
-  const parsed = JSON.parse(row.slides) as { slides?: Slide[]; layers?: Layer[] }
+  const parsed = JSON.parse(row.slides) as {
+    slides?: Slide[] | { slides?: Slide[]; layers?: Layer[] }
+    layers?: Layer[]
+  }
+  // Older rows wrote `{slides: {slides, layers}, layers: []}` (the
+  // editor's verbatim Supabase path stored its single JSON column
+  // wrapper). Detect and unwrap so MCP tools see a flat shape.
+  const inner = parsed?.slides
+  let slides: Slide[]
+  let layers: Layer[]
+  if (inner && !Array.isArray(inner) && 'slides' in inner) {
+    slides = inner.slides ?? []
+    layers = inner.layers ?? []
+  } else {
+    slides = (Array.isArray(inner) ? inner : []) as Slide[]
+    layers = parsed?.layers ?? []
+  }
   return {
     id: row.id,
     title: row.title,
     page_count: row.page_count,
     aspect_ratio: row.aspect_ratio,
     theme: row.theme,
-    slides: parsed.slides ?? [],
-    layers: parsed.layers ?? [],
+    slides,
+    layers,
     thumbnail_url: row.thumbnail_url,
     created_at: row.created_at,
     updated_at: row.updated_at,

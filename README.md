@@ -4,56 +4,166 @@ Claude builds your LinkedIn and Instagram carousels, locally and free.
 MIT-licensed, open source, zero cloud. A [Nodewave](https://nodewave.io)
 project.
 
-> **Status: pre-alpha.** The package scaffold + SQLite backend are in
-> place; the Next.js editor and MCP tool port are in progress. See
-> [`HANDOFF.md`](./HANDOFF.md) for the migration state.
-
-## Install (once shipped)
-
 ```bash
-npx @nodewave/redesign start
+npx @nodewave/redesign
 ```
 
-That starts a local server on `localhost:3000`, bootstraps a SQLite DB
-at `~/.redesign/db.sqlite`, and prints a `.mcp.json` snippet you paste
-into your Claude Code config.
+That's the whole install. Open `http://localhost:3000`, paste the MCP
+snippet it prints into Claude Code, and start designing.
 
 ## What it is
 
-Redesign is an AI-driven content tool that lets Claude (via the Model
-Context Protocol) read, author, and edit multi-slide posts inside a
-local editor you control. You tell Claude what you want your next
-LinkedIn or Instagram carousel to say. Claude designs it in your
-editor in real time. You watch.
+You tell Claude what your next post should say. Claude composes the
+slides in a local editor you watch live — text, images, generated
+components, layout. You correct, refine, ship.
 
-- **Local-first.** Your posts, your assets, your database. Nothing
-  leaves your machine — not even our servers, because we don't have any.
-- **Claude-native.** 40-tool MCP. Claude reads your post as data,
-  makes changes as intent, validates before saving.
-- **Honest open source.** MIT. Fork it, audit it, host it yourself.
+- **Local-first.** Posts, assets, and the SQLite DB live in
+  `~/.redesign/`. Nothing leaves your machine.
+- **Claude-native.** 40-tool MCP server. Claude reads your post as
+  data, edits with intent, validates before save.
+- **Open source.** MIT. Fork it, audit it, run it yourself.
+
+## Quickstart
+
+### 1. Boot the editor
+
+```bash
+npx @nodewave/redesign
+```
+
+What this does, step by step:
+
+1. Picks a free port (3000 → 3100 → 3200) and binds to `127.0.0.1`.
+2. Creates `~/.redesign/` if it doesn't exist; bootstraps `db.sqlite`.
+3. Prints the editor URL and a `.mcp.json` snippet for Claude Code.
+4. Starts the Next.js editor and waits for Ctrl-C.
+
+You don't need a Nodewave account. The package never makes a network
+call to us — only to npm (when you install) and to Google's CDN
+(first time you export, to download Chrome ~200 MB into
+`~/.redesign/chromium/`).
+
+### 2. Connect Claude Code
+
+Paste the snippet `start` printed into either:
+
+- **Project-scoped:** `.mcp.json` in your repo root (Claude Code picks
+  it up on session start).
+- **Globally:** `~/.claude/mcp.json`.
+
+Or just run:
+
+```bash
+npx @nodewave/redesign mcp-config
+```
+
+Then restart Claude Code. You'll see `redesign` in the MCP server
+list.
+
+### 3. Build your first post
+
+Open the editor URL, click **New post**. Then in Claude Code:
+
+> Open my latest post and build a 5-slide carousel about my new
+> product. Dark theme. Punchy hook on slide 1, value props on 2-4,
+> install command on 5.
+
+Claude calls `media_get_post`, composes the layers, screenshots to
+verify, and tells you when it's done. You watch the editor update in
+real time. Reload to refresh, or click **Download** to export a zip
+of PNGs ready to upload to LinkedIn / Instagram.
+
+## Commands
+
+```bash
+redesign start [--port 3000]   # Start the editor
+redesign mcp                   # Run stdio MCP server (Claude Code calls this)
+redesign mcp-config            # Print .mcp.json snippet
+redesign init                  # Just bootstrap ~/.redesign/, no editor
+redesign seed [dir]            # Import a folder of TSX components/icons
+redesign doctor                # Environment check
+redesign reset [--yes]         # Wipe ~/.redesign/ (asks first)
+redesign version
+```
+
+## Requirements
+
+- **Node 20+**
+- **Claude Code** ([install](https://docs.anthropic.com/en/docs/claude-code))
+- **~250 MB free disk** for Chrome (downloaded on first export)
+- macOS, Linux, or Windows
+
+## Data + privacy
+
+Everything lives under `~/.redesign/`:
+
+```
+~/.redesign/
+  db.sqlite          single-file DB (WAL mode)
+  assets/            uploaded images + component sources
+  exports/           generated carousel zips
+  chromium/          puppeteer's Chrome (auto-downloaded)
+  config.json        editor port + pid (overwritten each `start`)
+```
+
+The Next server binds to `127.0.0.1` only. Nothing in this package
+phones home. The MCP log table (`media_mcp_log`) records tool calls
+locally for debugging — never transmitted anywhere.
+
+To wipe everything: `redesign reset`.
+
+## Troubleshooting
+
+**`port 3000 was in use — bound to 3100`** — fine, the CLI walked the
+port grid (3000 → 3100 → 3200). Use the URL it printed.
+
+**First export is slow (~30-60s)** — that's Chrome installing. Watch
+for `[redesign] installing Chrome (...) to ~/.redesign/chromium/`.
+Subsequent exports are ~3s/slide.
+
+**MCP tools missing in Claude Code** — restart Claude Code after
+adding the snippet. Check `claude --debug` to see the MCP startup
+log. `redesign doctor` confirms the schema bootstrapped.
+
+**`This post was modified somewhere else`** — the editor and Claude
+both edited the same post simultaneously. Reload the editor; latest
+wins. (Optimistic concurrency on `updated_at`.)
 
 ## Architecture
 
 ```
-~/.redesign/
-  db.sqlite       single-file DB (better-sqlite3, WAL mode)
-  assets/         uploaded image + component thumbnails
-  exports/        generated carousel zips
-  logs/mcp.log    MCP stderr mirror
+~/.redesign/db.sqlite — single source of truth at runtime
+
+src/cli.ts            — one-shot CLI, spawns the editor + MCP
+src/mcp/              — stdio MCP server, 11 tool files
+src/db/               — SQLite repo + fs storage (server-side)
+src/browser.ts        — lazy Chrome installer for export
+
+web/                  — Next.js editor
+  app/                — pages (posts list, edit, assets, render)
+  app/api/            — REST shim that maps editor calls to src/db/
+  lib/db/             — vendored copy of src/db/ for the Next server
+  lib/supabase.ts     — translator: Supabase chain calls → fetch
+
+schema/0001_init.sql  — DB bootstrap (idempotent)
 ```
 
-- `src/db/` — SQLite repository + fs storage (the only module that
-  touches SQL or the disk).
-- `src/mcp/` — stdio MCP server, 40-tool surface. Imports `src/db/`.
-- `web/` — Next.js editor (to be copied over from
-  `nw-site/app/admin/media/`). Calls `src/db/` through Next API routes.
-- `schema/0001_init.sql` — SQLite schema, run on first boot.
+The `lib/db/` files are kept in lock-step with `src/db/`. If you
+patch one, patch the other.
+
+## Contributing
+
+Issues + PRs welcome at
+[github.com/Nodewave-io/redesign](https://github.com/Nodewave-io/redesign).
+The codebase is small (~10k LoC) and read-it-in-an-afternoon. Start
+with `LAUNCH-CHECKLIST.md` for a current map of what's shipped and
+what's pending.
 
 ## Credits
 
-Built by [Tiago Lemos](https://nodewave.io) at Nodewave. Originally an
-internal tool for our agency content; open-sourced because we figured
-everyone should have it.
+Built by [Tiago Lemos](https://nodewave.io) at Nodewave. Born from
+the internal tool we used for our own client work; open-sourced so
+everyone can have a Claude-native content workflow.
 
 ## License
 

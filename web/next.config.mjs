@@ -9,6 +9,11 @@ const nextConfig = {
   // Pin the workspace root to web/ so Next stops picking the parent
   // redesign/package-lock.json and printing the inferred-root warning.
   outputFileTracingRoot: dirname(fileURLToPath(import.meta.url)),
+  // Standalone output bundles a self-contained Node server at
+  // web/.next/standalone/server.js with traced node_modules. That's
+  // what we ship in the tarball; the CLI spawns it directly so users
+  // don't need `next` installed globally or in their cwd.
+  output: 'standalone',
 }
 
 export default nextConfig

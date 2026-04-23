@@ -17,6 +17,7 @@ import {
   updatePost,
   type PostPatch,
 } from '@/lib/db/repo'
+import { unwrapPostBody } from '../_unwrap'
 
 type PatchBody = {
   patch: PostPatch
@@ -42,7 +43,10 @@ export async function PATCH(
   const { id } = await ctx.params
   const body = (await req.json()) as PatchBody
   try {
-    const next = updatePost(id, body.patch ?? {}, body.expected_updated_at)
+    const patch = unwrapPostBody(
+      (body.patch ?? {}) as Record<string, unknown>,
+    ) as PostPatch
+    const next = updatePost(id, patch, body.expected_updated_at)
     return NextResponse.json({ id: next.id, updated_at: next.updated_at })
   } catch (err) {
     return handle(err)

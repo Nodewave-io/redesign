@@ -108,18 +108,43 @@ export default function RenderSlide() {
   // a layer inside this slide's frame we translate by
   // (layer.slideIndex - slideIndex) * CANVAS.W.
   return (
-    <div
-      id="nw-slide-root"
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: CANVAS.W,
-        height: CANVAS.H,
-        background: '#FFFFFF',
-        overflow: 'hidden',
-      }}
-    >
+    <>
+      {/* Hide Next.js dev-mode chrome so it never lands in an export.
+          The dev indicator is rendered in a separate Portal/CustomElement
+          but visually overlaps `#nw-slide-root` (which spans 0,0 →
+          1000x1250), so puppeteer's element-screenshot would otherwise
+          capture it. Selectors cover Next 13/14/15 across versions. */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            nextjs-portal,
+            [data-nextjs-toast],
+            [data-nextjs-toast-wrapper],
+            [data-nextjs-dev-tools-button],
+            [data-nextjs-build-indicator],
+            .__next-build-watcher,
+            #__next-build-watcher,
+            #__next-dev-overlay,
+            #__nextjs-dev-tools-menu {
+              display: none !important;
+              visibility: hidden !important;
+              pointer-events: none !important;
+            }
+          `,
+        }}
+      />
+      <div
+        id="nw-slide-root"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: CANVAS.W,
+          height: CANVAS.H,
+          background: '#FFFFFF',
+          overflow: 'hidden',
+        }}
+      >
       <SlideBackground theme={post.theme} background={slide.background} />
       {visible.map((layer) => (
         <div
@@ -142,6 +167,7 @@ export default function RenderSlide() {
           />
         </div>
       ))}
-    </div>
+      </div>
+    </>
   )
 }

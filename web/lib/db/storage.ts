@@ -116,8 +116,11 @@ export function resolveStoragePath(storagePath: string): string | null {
     const name = rest.join('/')
     return name ? join(EXPORTS_DIR, name) : null
   }
-  // No bucket prefix — treat the whole thing as a path inside assets/.
-  return join(ASSETS_DIR, storagePath)
+  // Anything else: reject. We previously fell through to "treat as a
+  // bare assets path" which was convenient for legacy callers but let
+  // requests with unknown buckets pollute the assets dir layout. The
+  // editor + MCP always supply a bucket prefix, so this is safe.
+  return null
 }
 
 function extFromMime(mime: string): string {

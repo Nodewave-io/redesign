@@ -5,19 +5,18 @@
 //   • the SQLite DB at ~/.redesign/db.sqlite
 //
 // Commands:
-//   redesign start [--port 3000]   Start the local editor + print mcp-config
+//   redesign [--port 3000]          Start the local editor (default action)
+//   redesign start [--port 3000]    Same as above, explicit
 //   redesign mcp                    Run the stdio MCP server (Claude Code calls this)
 //   redesign mcp-config             Print the .mcp.json snippet to stdout
 //   redesign doctor                 Environment check (node version, sqlite, perms)
 //   redesign reset [--yes]          Wipe ~/.redesign (asks unless --yes)
 //   redesign --help / --version
-//
-// `start` is deliberately a stub — it will spawn next once web/ lands.
-// Everything else is functional today.
 
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:net'
-import { existsSync, rmSync } from 'node:fs'
+import { existsSync, realpathSync, rmSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { createInterface } from 'node:readline/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -26,12 +25,15 @@ import { closeDb, getDb } from './db/client.js'
 import { writeConfig } from './config.js'
 import { seedIcons } from './seed.js'
 
-const VERSION = '0.1.0-pre'
+const VERSION = '0.1.0'
 
 async function main(argv: string[]): Promise<number> {
   const [cmd, ...rest] = argv
   switch (cmd) {
+    // No subcommand → start the editor. Mirrors `next`, `vite`, `claude`
+    // and most modern dev CLIs. Use `redesign --help` for the command list.
     case undefined:
+      return runStart(rest)
     case 'help':
     case '--help':
     case '-h':
@@ -47,6 +49,8 @@ async function main(argv: string[]): Promise<number> {
     case 'mcp-config':
       printMcpConfig()
       return 0
+    case 'install-mcp':
+      return runInstallMcp()
     case 'doctor':
       return runDoctor()
     case 'reset':
@@ -70,12 +74,14 @@ function printHelp(): void {
       `redesign ${VERSION}`,
       '',
       'USAGE',
+      '  redesign                  Start the local editor (default action)',
       '  redesign <command> [options]',
       '',
       'COMMANDS',
       '  start [--port N]  Start the local editor (spawns Next on :N, default 3000)',
       '  mcp               Run the stdio MCP server (invoked by Claude Code)',
       '  mcp-config        Print the .mcp.json snippet to paste into ~/.claude/mcp.json',
+      '  install-mcp       Auto-merge the snippet into ~/.claude/mcp.json (recommended)',
       '  init              Create ~/.redesign and bootstrap the SQLite schema',
       '  seed [dir]        Import a folder of TSX icons into the asset library',
       '                    (defaults to ./seed/icons; pass --replace to wipe first)',
@@ -99,6 +105,65 @@ function printMcpConfig(): void {
     },
   }
   console.log(JSON.stringify(snippet, null, 2))
+}
+
+// Merge the redesign MCP entry into the user's Claude Code config at
+// ~/.claude/mcp.json. Idempotent (re-running is safe). Preserves any
+// other MCPs the user has already registered. Removes the most
+// failure-prone onboarding step: hand-editing JSON.
+async function runInstallMcp(): Promise<number> {
+  const { readFile, writeFile, mkdir } = await import('node:fs/promises')
+  const path = await import('node:path')
+  const cfgDir = path.join(homedir(), '.claude')
+  const cfgPath = path.join(cfgDir, 'mcp.json')
+  const entry = {
+    command: 'npx',
+    args: ['-y', '@nodewave/redesign', 'mcp'],
+  }
+
+  const { rename } = await import('node:fs/promises')
+  await mkdir(cfgDir, { recursive: true })
+  let existing: { mcpServers?: Record<string, unknown> } = {}
+  try {
+    const raw = await readFile(cfgPath, 'utf-8')
+    existing = JSON.parse(raw) as typeof existing
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException)?.code
+    if (code !== 'ENOENT') {
+      console.error(
+        `[redesign] couldn't read existing ${cfgPath}: ${(err as Error).message}`,
+      )
+      console.error(
+        `[redesign] file looks corrupted — paste the snippet manually with: redesign mcp-config`,
+      )
+      return 1
+    }
+  }
+  const servers = (existing.mcpServers ?? {}) as Record<string, unknown>
+  const wasPresent = 'redesign' in servers
+  servers.redesign = entry
+  const next = { ...existing, mcpServers: servers }
+  // Write atomically via a sibling tmpfile + rename so a concurrent
+  // Claude Code reading mcp.json never sees a half-written file. Mode
+  // 0600 because the file may eventually hold MCP entries with API
+  // keys/tokens in args/env — better to lock down up front than to
+  // leave it world-readable like the default umask would.
+  const tmp = `${cfgPath}.tmp.${process.pid}`
+  await writeFile(tmp, JSON.stringify(next, null, 2) + '\n', { encoding: 'utf-8', mode: 0o600 })
+  await rename(tmp, cfgPath)
+
+  console.log('')
+  console.log(
+    wasPresent
+      ? `  ✓ Updated 'redesign' entry in ${cfgPath}`
+      : `  ✓ Added 'redesign' entry to ${cfgPath}`,
+  )
+  console.log('')
+  console.log('  Restart Claude Code so it picks up the new MCP.')
+  console.log('  Then in any session, ask Claude to "make a 5-slide carousel"')
+  console.log('  and watch it work.')
+  console.log('')
+  return 0
 }
 
 async function runMcp(): Promise<number> {
@@ -288,21 +353,57 @@ async function runStart(args: string[]): Promise<number> {
   console.log(`  ▲ Redesign — editor running at ${url}`)
   console.log(`  ▲ Data dir: ${REDESIGN_HOME}`)
   console.log('')
-  console.log('  MCP config (paste into ~/.claude/mcp.json):')
-  console.log('    { "mcpServers": { "redesign": { "command": "npx",')
-  console.log('                                    "args": ["-y", "@nodewave/redesign", "mcp"] } } }')
+  console.log('  Connect Claude Code:')
+  console.log('    npx @nodewave/redesign install-mcp   (auto-installs the MCP entry)')
+  console.log('    …then restart Claude Code.')
   console.log('')
   console.log('  Press Ctrl-C to stop.')
   console.log('')
 
-  // Spawn `next start` against the bundled build. Inherit stdio so the
-  // user sees request logs + hot errors in real time. `PORT` is the
-  // env var `next start` honors when no `-p` flag is passed.
-  const next = spawn('npx', ['next', 'start', '-p', String(port)], {
-    cwd: webDir,
-    stdio: 'inherit',
-    env: { ...process.env, PORT: String(port) },
-  })
+  // Pre-warm the Chrome download in the background so the user's first
+  // Export click doesn't pay the 30-60s install penalty. Fire-and-
+  // forget — failures are silent (the on-demand path in the export
+  // route will log + retry). Idempotent: ensureChromium() short-
+  // circuits when the binary is already cached under
+  // ~/.redesign/chromium/.
+  void (async () => {
+    try {
+      const { launchBrowser } = await import('./browser.js')
+      // We only need the binary, not a running browser — but the
+      // simplest way to trigger ensureChromium() without exposing
+      // it is to launch + immediately close. The launch itself is
+      // fast once the binary exists; first run is what we're warming.
+      const browser = await launchBrowser({
+        viewport: { width: 100, height: 100 },
+      })
+      await browser.close().catch(() => {})
+    } catch {
+      // Network unavailable / disk full / etc — the export route
+      // will surface the real error if the user tries to export.
+    }
+  })()
+
+  // Prefer the standalone server bundled into web/.next/standalone/ —
+  // that's what ships in the npm tarball and has its own traced
+  // node_modules, so it boots cleanly without `next` installed
+  // anywhere. Fall back to `npx next start` in dev checkouts where
+  // standalone hasn't been built yet.
+  const standaloneServer = locateStandaloneServer(webDir)
+  const next = standaloneServer
+    ? spawn(process.execPath, [standaloneServer], {
+        cwd: dirname(standaloneServer),
+        stdio: 'inherit',
+        env: {
+          ...process.env,
+          PORT: String(port),
+          HOSTNAME: '127.0.0.1',
+        },
+      })
+    : spawn('npx', ['next', 'start', '-H', '127.0.0.1', '-p', String(port)], {
+        cwd: webDir,
+        stdio: 'inherit',
+        env: { ...process.env, PORT: String(port), HOSTNAME: '127.0.0.1' },
+      })
 
   // Forward Ctrl-C / terminate signals cleanly so the Next subprocess
   // doesn't linger after the CLI dies.
@@ -335,6 +436,19 @@ function locateWebDir(start: string): string | null {
     dir = parent
   }
   return null
+}
+
+// Find the Next standalone server entry shipped in the published
+// package (web/.next/standalone/server.js OR
+// web/.next/standalone/web/server.js depending on the
+// outputFileTracingRoot). Returns null when it isn't built — caller
+// falls back to `next start`.
+function locateStandaloneServer(webDir: string): string | null {
+  const candidates = [
+    join(webDir, '.next', 'standalone', 'web', 'server.js'),
+    join(webDir, '.next', 'standalone', 'server.js'),
+  ]
+  return candidates.find((p) => existsSync(p)) ?? null
 }
 
 // Probe ports in 100-step increments so a blocked 3000 lands on 3100,
@@ -377,9 +491,23 @@ function probeAny(): Promise<number> {
   })
 }
 
+// Compare against the resolved real paths on both sides — the npm
+// `bin` field installs a symlink at `node_modules/.bin/redesign`, so
+// `process.argv[1]` is the symlink while `import.meta.url` resolves to
+// the actual `dist/cli.js`. A naive `===` mismatches and the CLI
+// silently exits without running `main()`.
 const scriptPath = fileURLToPath(import.meta.url)
-const invokedDirectly =
-  process.argv[1] === scriptPath || process.argv[1] === join(scriptPath)
+let invokedDirectly = false
+try {
+  invokedDirectly =
+    realpathSync(process.argv[1] ?? '') === realpathSync(scriptPath)
+} catch {
+  // realpath can throw if argv[1] is missing or unreadable; fall back
+  // to the literal comparison, which still works for non-symlink runs
+  // (e.g. `node dist/cli.js ...` from a checkout).
+  invokedDirectly =
+    process.argv[1] === scriptPath || process.argv[1] === join(scriptPath)
+}
 if (invokedDirectly) {
   main(process.argv.slice(2)).then(
     (code) => process.exit(code),

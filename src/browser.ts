@@ -19,6 +19,7 @@ const CHROME_BUILD_TAG = 'stable'
 export type PageHandle = {
   setDefaultNavigationTimeout: (ms: number) => void
   setDefaultTimeout: (ms: number) => void
+  close: () => Promise<void>
   goto: (url: string, opts?: { waitUntil?: string }) => Promise<unknown>
   waitForFunction: (expr: string, opts?: { timeout?: number }) => Promise<unknown>
   $: (sel: string) => Promise<{

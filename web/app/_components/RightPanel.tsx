@@ -503,6 +503,8 @@ function TextInspector({ layer }: { layer: TextLayer }) {
             <option value="display">Manrope</option>
             <option value="mono">Space Mono</option>
             <option value="sans">Inter</option>
+            <option value="geist">Geist</option>
+            <option value="system">System (SF Pro)</option>
           </select>
         </Field>
         <Field label="Weight">

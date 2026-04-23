@@ -11,6 +11,14 @@ const FONT_FAMILY_MAP = {
   display: 'var(--font-display), Manrope, system-ui, sans-serif',
   mono: 'var(--font-mono-accent), "Space Mono", ui-monospace, monospace',
   sans: 'Inter, system-ui, -apple-system, sans-serif',
+  // nw-site body font. Bundled via next/font/google so it renders
+  // identically in the editor preview AND in puppeteer-export PNGs.
+  geist: 'var(--font-geist), Geist, "Inter", system-ui, sans-serif',
+  // System / SF Pro stack. Renders SF Pro on Apple devices in the
+  // EDITOR. In exports puppeteer's bundled Chromium falls back to a
+  // generic system sans (the SF Pro family isn't installed in the
+  // headless Chrome). Use `geist` or `sans` if export fidelity matters.
+  system: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif',
 }
 
 export function LayerNode({ layer, theme }: { layer: Layer; theme: Theme }) {
@@ -93,11 +101,15 @@ export function LayerNode({ layer, theme }: { layer: Layer; theme: Theme }) {
       )
     }
     case 'image': {
+      // Encode quotes/parens so a layer URL can't break out of the
+      // CSS string and append arbitrary CSS declarations. We accept
+      // http(s):, data:image/, and our local /api/storage/ URLs only.
+      const safeUrl = sanitizeImageUrl(layer.url)
       return (
         <div
           style={{
             ...style,
-            backgroundImage: `url("${layer.url}")`,
+            backgroundImage: safeUrl ? `url("${safeUrl}")` : undefined,
             backgroundSize: layer.fit === 'contain' ? 'contain' : 'cover',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
@@ -138,6 +150,39 @@ export function LayerNode({ layer, theme }: { layer: Layer; theme: Theme }) {
       )
     }
   }
+}
+
+// Validate + escape an image URL for use inside CSS `url("...")`.
+// Accept only http(s):, data:image/, and same-origin /api/storage/
+// paths. Returns null for anything else (renders no background).
+function sanitizeImageUrl(raw: string | undefined | null): string | null {
+  if (!raw) return null
+  const url = String(raw)
+  // Same-origin storage path — already controlled by us.
+  if (url.startsWith('/api/storage/') || url.startsWith('/_next/')) {
+    return cssEscape(url)
+  }
+  // data: URLs limited to images (no SVG with embedded scripts).
+  if (/^data:image\/(png|jpeg|jpg|gif|webp|avif);/.test(url)) {
+    return cssEscape(url)
+  }
+  try {
+    const u = new URL(url)
+    if (u.protocol === 'http:' || u.protocol === 'https:') {
+      return cssEscape(u.href)
+    }
+  } catch {
+    /* fall through */
+  }
+  return null
+}
+
+function cssEscape(url: string): string {
+  // Escape the chars that would break out of a CSS string literal:
+  // double-quote (we wrap in `"…"`), backslash, and newlines.
+  return url.replace(/[\\"\n\r]/g, (c) =>
+    c === '"' ? '%22' : c === '\\' ? '%5C' : '%0A',
+  )
 }
 
 export function SlideBackground({

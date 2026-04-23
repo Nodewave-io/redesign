@@ -90,7 +90,7 @@ export type LayerKind =
 export type TextLayer = BaseLayer & {
   kind: 'text'
   text: string
-  fontFamily?: 'display' | 'mono' | 'sans'
+  fontFamily?: 'display' | 'mono' | 'sans' | 'geist' | 'system'
   fontSize: number
   fontWeight: 400 | 500 | 600 | 700
   color: string
@@ -180,28 +180,45 @@ export type MediaPost = {
   updated_at: string
 }
 
-// Row shape in DB (slides column holds both `slides` and `layers`).
+// Row shape coming back from the API. Historically the editor's
+// Supabase path stored slides as a single JSON column shaped
+// `{slides, layers}` — which is what `MediaPostRow.slides` reflected.
+// The new server-side repo returns a FLAT shape (so MCP tools see
+// `slides: Slide[]` and `layers: Layer[]` directly). Accept either.
 export type MediaPostRow = {
   id: string
   title: string
   page_count: number
   aspect_ratio: string
   theme: Theme
-  slides: { slides: Slide[]; layers: Layer[] }
+  slides: Slide[] | { slides: Slide[]; layers: Layer[] }
+  layers?: Layer[]
   thumbnail_url: string | null
   created_at: string
   updated_at: string
 }
 
 export function postFromRow(row: MediaPostRow): MediaPost {
+  // Two cases. Flat (new): slides is an array, layers is its own field.
+  // Wrapped (legacy): slides is `{slides, layers}` and outer layers is
+  // empty/missing. Detect by inspecting the runtime shape.
+  let slides: Slide[]
+  let layers: Layer[]
+  if (Array.isArray(row.slides)) {
+    slides = row.slides
+    layers = row.layers ?? []
+  } else {
+    slides = row.slides?.slides ?? []
+    layers = row.slides?.layers ?? row.layers ?? []
+  }
   return {
     id: row.id,
     title: row.title,
     page_count: row.page_count,
     aspect_ratio: row.aspect_ratio,
     theme: row.theme,
-    slides: row.slides?.slides ?? [],
-    layers: row.slides?.layers ?? [],
+    slides,
+    layers,
     thumbnail_url: row.thumbnail_url,
     created_at: row.created_at,
     updated_at: row.updated_at,

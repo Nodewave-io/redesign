@@ -60,22 +60,48 @@ export async function POST(request: NextRequest) {
   const zip = new JSZip()
   let firstPng: Buffer | null = null
 
-  try {
-    const page = await browser.newPage()
-    page.setDefaultNavigationTimeout(60_000)
-    page.setDefaultTimeout(60_000)
+  // Render slides in parallel chunks. Each chunk opens its own
+  // puppeteer pages so navigation + render run concurrently — that's
+  // where the bulk of export time lives (one page-load + paint per
+  // slide, ~2s each). CONCURRENCY=4 keeps memory bounded (each Chrome
+  // page is ~80-120 MB) so a 20-slide carousel still fits in 8 GB.
+  const CONCURRENCY = 4
 
-    for (let i = 0; i < post.slides.length; i++) {
+  const renderSlide = async (i: number): Promise<Buffer> => {
+    const page = await browser.newPage()
+    try {
+      page.setDefaultNavigationTimeout(60_000)
+      page.setDefaultTimeout(60_000)
       const url = `${origin}/render/${post.id}?slide=${i}`
       await page.goto(url, { waitUntil: 'networkidle0' })
       await page.waitForFunction('window.__slideReady === true', { timeout: 45_000 })
       const el = await page.$('#nw-slide-root')
       if (!el) throw new Error(`Render route missing #nw-slide-root on slide ${i + 1}`)
       const shot = await el.screenshot({ type: 'png', omitBackground: false })
-      const png = Buffer.from(shot)
-      if (!firstPng) firstPng = png
+      return Buffer.from(shot)
+    } finally {
+      await page.close().catch(() => {})
+    }
+  }
+
+  try {
+    // Result array preserves slide order — Promise.all returns in input
+    // order, so chunk by chunk we fill in the right indices.
+    const pngs: Buffer[] = new Array(post.slides.length)
+    for (let start = 0; start < post.slides.length; start += CONCURRENCY) {
+      const batch = []
+      for (let i = start; i < Math.min(start + CONCURRENCY, post.slides.length); i++) {
+        batch.push(renderSlide(i).then((png) => ({ i, png })))
+      }
+      const settled = await Promise.all(batch)
+      for (const { i, png } of settled) pngs[i] = png
+    }
+    // Stash slide 0 for the thumbnail save below; build the zip in
+    // order using the canonical zero-padded filenames.
+    firstPng = pngs[0] ?? null
+    for (let i = 0; i < pngs.length; i++) {
       const fileName = `slide-${String(i + 1).padStart(2, '0')}.png`
-      zip.file(fileName, png)
+      zip.file(fileName, pngs[i])
     }
   } finally {
     await browser.close().catch(() => {})

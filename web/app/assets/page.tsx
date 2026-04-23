@@ -5,12 +5,13 @@
 // The editor's left-panel picker only *inserts* — management happens
 // here.
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { AdminSidebar } from '@/components/admin/sidebar'
 import {
   AssetKind,
+  CANVAS,
   MediaAsset,
   SUGGESTED_CATEGORIES,
   cryptoId,
@@ -216,9 +217,6 @@ function CategoryFilter({
     )
   }, [assets])
 
-  // No categories yet? Skip the control entirely.
-  if (inUse.length === 0) return null
-
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -240,6 +238,11 @@ function CategoryFilter({
       document.removeEventListener('keydown', onKey)
     }
   }, [open])
+
+  // No categories yet? Skip the control entirely. Must come AFTER all
+  // hook calls — React enforces stable hook order across renders, and
+  // the asset list is empty on the first render before load() resolves.
+  if (inUse.length === 0) return null
 
   const label = filter === 'all' ? 'All categories' : filter
 
@@ -383,32 +386,14 @@ function AssetCard({
         }}
       >
         {asset.kind === 'component' ? (
-          // Center the component inside the preview. Icons are tiny by
-          // default (24×24 from the Figma exporter) so they land in the
-          // top-left of a 200px card and look broken; auto-scale them
-          // up when we detect an icon-sized asset. The `currentColor`
-          // default on seeded icons inherits the container's color, so
-          // setting ink here gives them a visible tint.
-          <div
-            className="absolute inset-0 bg-white flex items-center justify-center"
-            style={{ color: 'var(--nw-admin-fg)' }}
-          >
-            <div
-              style={{
-                // Icon-sized assets (<=64px) upscale ~5x so a 24px icon
-                // reads at ~120px in the preview. Bigger components
-                // render at their natural size and rely on the outer
-                // `overflow-hidden` to clip any runaway edges.
-                transform:
-                  (asset.width ?? 0) > 0 && (asset.width ?? 0) <= 64
-                    ? 'scale(5)'
-                    : 'none',
-                transformOrigin: 'center center',
-              }}
-            >
-              <CodeRunner source={asset.source_code ?? ''} />
-            </div>
-          </div>
+          // Render the component at its native slide size (1000×1250)
+          // and scale-down to fit the preview card. Avoids the
+          // text-wrap-and-clip problem from rendering at the card's
+          // 200px width directly. Dark backdrop (#0A0A0A, the dark
+          // theme bg) so light-text-on-transparent components are
+          // visible — most slides ship dark anyway, so this matches
+          // the most common use context.
+          <ScaledComponentPreview source={asset.source_code ?? ''} nativeW={asset.width} nativeH={asset.height} />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -469,6 +454,94 @@ function AssetCard({
       </div>
     </div>
   )
+}
+
+// Renders a code-component asset at its native slide size (1000×1250)
+// then scales the whole thing down to fit the preview card. This is
+// the same pattern the home grid uses for post thumbnails — preserves
+// proportions, prevents text-wrap distortion, and works for components
+// whose authors assumed full-slide bounds. Backdrop is the dark theme
+// bg so light text on transparent backgrounds reads.
+function ScaledComponentPreview({
+  source,
+  nativeW,
+  nativeH,
+}: {
+  source: string
+  /** Asset's saved width — the dimensions of the layer it was
+   *  saved from. We render at THIS size so the component looks
+   *  identical to the slide use, then scale uniformly to fit. Falls
+   *  back to the full canvas size when the asset has no width. */
+  nativeW?: number | null
+  nativeH?: number | null
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(0)
+  const W = nativeW && nativeW > 0 ? nativeW : CANVAS.W
+  const H = nativeH && nativeH > 0 ? nativeH : CANVAS.H
+
+  useLayoutEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    const update = () => {
+      const r = el.getBoundingClientRect()
+      // Contain-fit with a margin: scale so the WHOLE component (at
+      // its native saved size) fits inside the card with breathing
+      // room. Using the asset's true w/h instead of the full canvas
+      // means borders, paddings and proportions render exactly like
+      // they do on a slide — no stretching from a 880×600 chart into
+      // a 1000×1250 frame, which would round-down the borderRadius.
+      const MARGIN = 0.86
+      setScale(Math.min(r.width / W, r.height / H) * MARGIN)
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [W, H])
+
+  return (
+    <div
+      ref={wrapRef}
+      className="absolute inset-0 overflow-hidden flex items-center justify-center"
+      // Auto-pick a backdrop that complements the component. Source
+      // that uses white/cream backgrounds gets a cream backdrop;
+      // anything else gets the dark slide bg. Means light-mode
+      // components (charts on cream slides) don't render against a
+      // black void in the library.
+      style={{ background: pickPreviewBg(source) }}
+    >
+      {scale > 0 && (
+        <div
+          style={{
+            width: W,
+            height: H,
+            transform: `scale(${scale})`,
+            transformOrigin: 'center center',
+            flexShrink: 0,
+          }}
+        >
+          <CodeRunner source={source} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Pick a backdrop that suits the component's design. Looks at the
+// FIRST `background:` declaration in the source — light colors get a
+// cream backdrop (matches the light-theme slide), everything else
+// gets the dark slide bg. Cheap heuristic, works for our patterns.
+function pickPreviewBg(source: string): string {
+  const m = source.match(/background\s*:\s*['"]?([^,'"}]+)/)
+  if (!m) return '#0A0A0A'
+  const v = m[1].toLowerCase()
+  const isLight =
+    v.includes('#fff') ||
+    v.includes('#f5efe6') ||
+    v.includes('rgba(255') ||
+    v.includes('rgb(255')
+  return isLight ? '#F5EFE6' : '#0A0A0A'
 }
 
 function IconAction({
@@ -725,7 +798,10 @@ function AssetFormModal({
   onClose: () => void
   submitting: boolean
   draft: DraftForm
-  setDraft: (d: DraftForm) => void
+  // Accept both the value form and the React updater form so callers
+  // can use functional updates when they need the latest committed
+  // state (the categories multiselect race fix relies on this).
+  setDraft: React.Dispatch<React.SetStateAction<DraftForm>>
   lockKind?: boolean
 }) {
   return (
@@ -833,9 +909,16 @@ function AssetFormModal({
               <Label>Categories</Label>
               <CategoryMultiselect
                 value={draft.categories}
-                onChange={(v) => setDraft({ ...draft, categories: v })}
+                // Functional updates here are load-bearing: when the
+                // input is blurred or Enter is pressed, the multiselect
+                // calls onChange + setInput back-to-back. With plain
+                // `setDraft({...draft, X})` form, the second call uses
+                // a stale draft and overwrites the first — categories
+                // would silently revert. Use the updater form so each
+                // call sees the latest committed draft.
+                onChange={(v) => setDraft((d) => ({ ...d, categories: v }))}
                 input={draft.categoryInput}
-                setInput={(v) => setDraft({ ...draft, categoryInput: v })}
+                setInput={(v) => setDraft((d) => ({ ...d, categoryInput: v }))}
               />
             </div>
           </div>
@@ -1091,12 +1174,14 @@ function CategoryMultiselect({
   }
   return (
     <div
-      className="rounded-full flex items-center gap-1.5 flex-wrap px-3 transition-colors"
+      className="rounded-full flex items-center gap-1.5 flex-wrap transition-colors"
       style={{
         minHeight: 44,
         background: 'var(--nw-admin-surface-inner)',
         border: '1px solid rgba(24,18,15,0.12)',
-        padding: '4px 8px',
+        // Match the horizontal padding of <InputText> (px-4 = 16px)
+        // so the placeholder/value lines up with the other form fields.
+        padding: '4px 16px',
       }}
     >
       {value.map((c) => (

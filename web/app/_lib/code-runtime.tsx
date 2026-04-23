@@ -49,6 +49,12 @@ const SCOPE: Record<string, unknown> = {
   Icons: Lucide,
   cn: clsx,
   clsx,
+  // `props` is intentionally an empty object (not undefined) so the
+  // common Claude-generated pattern `(props && props.foo) || 'default'`
+  // resolves to the default instead of throwing ReferenceError. Asset
+  // components that want config can read props.* and gracefully fall
+  // back; today nothing passes props in, so all reads are undefined.
+  props: {},
 }
 
 type CompiledNode = { ok: true; node: React.ReactNode } | { ok: false; error: string }

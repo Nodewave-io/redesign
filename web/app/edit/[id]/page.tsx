@@ -61,6 +61,42 @@ export default function MediaEditorPage() {
     }
   }, [postId])
 
+  // Live-sync poll. While the editor is open, hit GET /api/posts/[id]
+  // every second and compare the server's updated_at to what we
+  // currently hold. If the server is newer AND the user has no
+  // unsaved/in-flight changes, reload — that's how Claude's MCP edits
+  // appear in the canvas without a manual refresh. Skip while tab is
+  // hidden so backgrounded editors don't burn cycles.
+  useEffect(() => {
+    if (!postId) return
+    let cancelled = false
+    const tick = async () => {
+      if (cancelled) return
+      if (document.hidden) return
+      const s = editor.state
+      // Don't clobber unsaved local edits or interrupt an active save.
+      if (s.dirty || s.saveState === 'saving') return
+      // Pre-check via cheap API hit. The shim's `.select('updated_at')`
+      // shape returns the full row; we only need the timestamp here.
+      const { data, error } = await supabase
+        .from('media_posts')
+        .select('*')
+        .eq('id', postId)
+        .maybeSingle()
+      if (cancelled || error || !data) return
+      const incoming = (data as MediaPostRow).updated_at
+      const local = editor.state.post.updated_at
+      if (incoming && incoming !== local) {
+        editor.loadPost(postFromRow(data as MediaPostRow))
+      }
+    }
+    const id = setInterval(tick, 1000)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [postId])
+
   // Register the autosave saver. Same saver as before; concurrency via
   // expected_updated_at. On 409 (row moved), surface a clear error so
   // the user reloads.

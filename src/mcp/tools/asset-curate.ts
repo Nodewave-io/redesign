@@ -20,7 +20,7 @@ export function registerAssetCurateTools(server: McpServer): void {
     'media_create_component_asset',
     {
       description:
-        "Register a fresh TSX source as a reusable component asset, without first putting it on a post. Use this when the user pastes/links a 21st.dev / magicui / external snippet and wants it saved to the library. ALWAYS run media_validate_code(source) first to catch syntax errors before they land in the library. ALWAYS draft usage_notes WITH the user (ask intent, themes, sizing, swap points) — don't make them up. Same category guidance as media_save_layer_as_asset.",
+        "Register a fresh TSX source as a reusable component asset, without first putting it on a post. Use this when the user pastes/links a 21st.dev / magicui / external snippet and wants it saved to the library. ALWAYS run media_validate_code(source) first to catch syntax errors before they land in the library. ALWAYS draft usage_notes WITH the user (ask intent, themes, sizing, swap points) — don't make them up. Same category guidance as media_save_layer_as_asset.\n\nWidth + height are STRONGLY RECOMMENDED for any component that isn't designed to fill a full 1000×1250 slide (cards, pills, charts, badges, headers, widgets — basically everything except full-bleed backgrounds). Use the dimensions the component was visually designed for. The library preview renders at this exact size with uniform scale-to-fit so borders and proportions stay correct, and the import drops the component centered on a slide at this exact size instead of stretching it. Example: a pill ~840×130, a stat card ~260×180, a chart card ~880×600. If omitted the component will be treated as full-slide (1000×1250) and may distort.",
       inputSchema: {
         name: z.string().min(1).max(200),
         source_code: z.string().min(1).max(100_000),
@@ -28,6 +28,8 @@ export function registerAssetCurateTools(server: McpServer): void {
         usage_notes: z.string().min(1).max(4000),
         categories: z.array(z.string()).optional(),
         tags: z.array(z.string()).optional(),
+        width: z.number().int().positive().max(2000).optional(),
+        height: z.number().int().positive().max(2500).optional(),
       },
     },
     withLogging(
@@ -39,6 +41,8 @@ export function registerAssetCurateTools(server: McpServer): void {
         usage_notes: string
         categories?: string[]
         tags?: string[]
+        width?: number
+        height?: number
       }) => {
         const asset = createAsset({
           kind: 'component',
@@ -50,8 +54,8 @@ export function registerAssetCurateTools(server: McpServer): void {
           file_url: null,
           storage_path: null,
           mime_type: null,
-          width: null,
-          height: null,
+          width: args.width ?? null,
+          height: args.height ?? null,
           source_code: args.source_code,
         })
         return textJson({
@@ -100,6 +104,11 @@ export function registerAssetCurateTools(server: McpServer): void {
           )
         }
         const code = layer as CodeLayer
+        // Save the layer's actual w/h as the asset's native dimensions.
+        // The library preview will render at this size (preserving the
+        // borders / paddings / proportions the layer used) and the
+        // import flow will drop the component centered on a slide at
+        // these dimensions instead of stretching to full canvas.
         const asset = createAsset({
           kind: 'component',
           name: args.name,
@@ -110,8 +119,8 @@ export function registerAssetCurateTools(server: McpServer): void {
           file_url: null,
           storage_path: null,
           mime_type: null,
-          width: null,
-          height: null,
+          width: code.w,
+          height: code.h,
           source_code: code.source,
         })
         return textJson({
@@ -129,7 +138,7 @@ export function registerAssetCurateTools(server: McpServer): void {
     'media_update_asset',
     {
       description:
-        "Patch an existing asset's metadata — `name`, `description`, `usage_notes`, `categories`, `tags`. Use this to refine `usage_notes` once you've seen how an asset works in real slides. Cannot change `kind`, `source_code`, or `file_url` — re-upload via the UI for those.",
+        "Patch an existing asset's metadata — `name`, `description`, `usage_notes`, `categories`, `tags`, `width`, `height`, `source_code`. Use this to refine `usage_notes` once you've seen how an asset works in real slides, or to fix the native `width`/`height` of an older component asset that was saved without dimensions (those render at full slide size 1000×1250 by default and may distort). Cannot change `kind` or `file_url` — re-upload via the UI for those.",
       inputSchema: {
         id: z.string().uuid(),
         patch: z
@@ -139,6 +148,9 @@ export function registerAssetCurateTools(server: McpServer): void {
             usage_notes: z.string().max(4000).nullable().optional(),
             categories: z.array(z.string()).optional(),
             tags: z.array(z.string()).optional(),
+            width: z.number().int().positive().max(2000).optional(),
+            height: z.number().int().positive().max(2500).optional(),
+            source_code: z.string().min(1).max(100_000).optional(),
           })
           .refine((v) => Object.keys(v).length > 0, {
             message: 'patch must have at least one field',
@@ -155,6 +167,9 @@ export function registerAssetCurateTools(server: McpServer): void {
           usage_notes?: string | null
           categories?: string[]
           tags?: string[]
+          width?: number
+          height?: number
+          source_code?: string
         }
       }) => {
         const asset = repoUpdateAsset(args.id, args.patch)

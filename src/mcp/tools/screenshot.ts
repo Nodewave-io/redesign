@@ -21,7 +21,7 @@ import { z } from 'zod'
 import { withLogging } from '../log.js'
 import { getPost } from '../../db/repo.js'
 import { launchBrowser } from '../../browser.js'
-import { serverUrl } from '../../config.js'
+import { discoverServerUrl } from '../../config.js'
 
 // Default render quality — 1 = exact canvas size (1000×1250 CSS px).
 // The render page's #nw-slide-root has deviceScaleFactor=2 applied
@@ -155,7 +155,12 @@ type CaptureInput = {
 // surface so the two registered tools share the exact timing + error
 // handling instead of drifting.
 async function captureSlide(input: CaptureInput): Promise<Uint8Array> {
-  const origin = serverUrl()
+  // Auto-discover the editor's actual port — config.json can be stale
+  // if the user started the editor via `next dev` directly or if a
+  // previous session's port was different. discoverServerUrl probes
+  // the configured port first, then walks the standard grid (3000,
+  // 3100, 3200…) and self-heals config when it finds a live one.
+  const origin = await discoverServerUrl()
   // Fail fast + clearly when the editor server isn't up.
   try {
     const res = await fetch(`${origin}/api/posts/${input.postId}`, {

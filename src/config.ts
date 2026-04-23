@@ -57,3 +57,49 @@ export function writeConfig(patch: Partial<RedesignConfig>): RedesignConfig {
 export function serverUrl(port: number = readConfig().port): string {
   return `http://127.0.0.1:${port}`
 }
+
+// Auto-discover the running editor. The configured port can drift
+// out of date if the user starts the editor via `next dev` directly
+// (bypassing `redesign start`'s writeConfig), or if a previous
+// session's stale config is still on disk. Probe the configured port
+// first, then walk the port grid the CLI itself uses (3000, 3100,
+// 3200…). Returns the first responding URL and self-heals config so
+// later calls hit it directly. Falls back to the configured value
+// (so error messages still tell the user what we tried) if nothing
+// is reachable. Exposed for MCP tools that need to talk to the
+// editor — anything that just renders a URL string for the user can
+// keep using serverUrl() unchanged.
+const PORT_GRID = [3000, 3100, 3200, 3300, 3400]
+
+export async function discoverServerUrl(): Promise<string> {
+  const cfg = readConfig()
+  const candidates = [cfg.port, ...PORT_GRID.filter((p) => p !== cfg.port)]
+  for (const port of candidates) {
+    const url = `http://127.0.0.1:${port}`
+    if (await ping(url)) {
+      // Self-heal config so subsequent MCP calls + the user's own
+      // `redesign start` log line both reflect reality.
+      if (port !== cfg.port) writeConfig({ port })
+      return url
+    }
+  }
+  return serverUrl(cfg.port)
+}
+
+async function ping(baseUrl: string): Promise<boolean> {
+  try {
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 700)
+    const res = await fetch(`${baseUrl}/api/posts`, {
+      signal: ctrl.signal,
+      method: 'HEAD',
+    }).catch(async () =>
+      // HEAD might 405; retry GET with the same timeout budget.
+      fetch(`${baseUrl}/api/posts`, { signal: ctrl.signal }),
+    )
+    clearTimeout(timer)
+    return res.ok || res.status === 405
+  } catch {
+    return false
+  }
+}

@@ -43,10 +43,23 @@ CREATE TABLE IF NOT EXISTS media_posts (
 );
 CREATE INDEX IF NOT EXISTS media_posts_updated_at_idx ON media_posts(updated_at DESC);
 
-CREATE TRIGGER IF NOT EXISTS media_posts_touch
+-- Auto-touch updated_at when any CONTENT field changes but the
+-- caller forgot to advance the timestamp. Excludes thumbnail_url
+-- because the export route writes that fire-and-forget after a
+-- download — bumping updated_at there would invalidate the editor's
+-- in-memory expected_updated_at and 409 the next user save.
+DROP TRIGGER IF EXISTS media_posts_touch;
+CREATE TRIGGER media_posts_touch
   AFTER UPDATE ON media_posts
   FOR EACH ROW
   WHEN OLD.updated_at IS NEW.updated_at
+       AND (
+         OLD.title IS NOT NEW.title OR
+         OLD.page_count IS NOT NEW.page_count OR
+         OLD.aspect_ratio IS NOT NEW.aspect_ratio OR
+         OLD.theme IS NOT NEW.theme OR
+         OLD.slides IS NOT NEW.slides
+       )
 BEGIN
   UPDATE media_posts
     SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')

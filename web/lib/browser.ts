@@ -29,6 +29,7 @@ type LaunchedBrowser = {
 export type PageHandle = {
   setDefaultNavigationTimeout: (ms: number) => void
   setDefaultTimeout: (ms: number) => void
+  close: () => Promise<void>
   goto: (url: string, opts?: { waitUntil?: string }) => Promise<unknown>
   waitForFunction: (expr: string, opts?: { timeout?: number }) => Promise<unknown>
   waitForSelector: (

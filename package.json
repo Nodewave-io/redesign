@@ -1,6 +1,6 @@
 {
   "name": "@nodewave/redesign",
-  "version": "0.1.0-pre",
+  "version": "0.1.0",
   "description": "Claude-native local editor for LinkedIn / Instagram carousels. MCP-driven, SQLite-backed, zero-cloud.",
   "license": "MIT",
   "author": "Nodewave <hello@nodewave.io> (https://nodewave.io)",
@@ -21,7 +21,11 @@
   },
   "files": [
     "dist",
-    "web",
+    "web/.next/standalone",
+    "web/.next/static",
+    "web/public",
+    "web/package.json",
+    "web/next.config.mjs",
     "schema",
     "README.md",
     "LICENSE"
@@ -29,6 +33,9 @@
   "scripts": {
     "dev": "tsx src/cli.ts start",
     "build": "tsc -p tsconfig.json && chmod 755 dist/cli.js dist/mcp/index.js",
+    "build:web": "cd web && npm install --no-audit --no-fund && npm run build && cd .. && node scripts/postbuild-web.mjs",
+    "build:all": "npm run build && npm run build:web",
+    "prepack": "npm run build:all",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:init": "tsx src/db/init.ts",
     "mcp": "tsx src/mcp/index.ts"
@@ -46,6 +53,7 @@
     "nodewave"
   ],
   "dependencies": {
+    "@babel/standalone": "^7.29.2",
     "@modelcontextprotocol/sdk": "^1.0.4",
     "@puppeteer/browsers": "^2.13.0",
     "better-sqlite3": "^11.3.0",

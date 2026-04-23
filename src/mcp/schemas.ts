@@ -25,7 +25,7 @@ export const textLayerInput = z.object({
   kind: z.literal('text'),
   ...base,
   text: z.string(),
-  fontFamily: z.enum(['display', 'mono', 'sans']).optional(),
+  fontFamily: z.enum(['display', 'mono', 'sans', 'geist', 'system']).optional(),
   fontSize: z.number().positive(),
   fontWeight: z.union([z.literal(400), z.literal(500), z.literal(600), z.literal(700)]),
   color: z.string(),
@@ -101,7 +101,7 @@ export const layerPatch = z
     z: z.number().int().optional(),
     locked: z.boolean().optional(),
     text: z.string().optional(),
-    fontFamily: z.enum(['display', 'mono', 'sans']).optional(),
+    fontFamily: z.enum(['display', 'mono', 'sans', 'geist', 'system']).optional(),
     fontSize: z.number().positive().optional(),
     fontWeight: z
       .union([z.literal(400), z.literal(500), z.literal(600), z.literal(700)])
