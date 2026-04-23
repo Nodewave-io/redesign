@@ -29,7 +29,16 @@ export async function PATCH(
   ctx: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
   const { id } = await ctx.params
-  const patch = (await req.json()) as AssetPatch
+  // Accept both shapes: {patch: {...}} (the editor sends this via the
+  // Supabase shim, mirroring the posts route's PatchBody contract) AND
+  // a bare patch object (what MCP tools and direct API callers send).
+  // Without the unwrap, fields land under `patch.patch.X` so every
+  // column check returns undefined and the row updates nothing —
+  // PATCH returns 200 with no actual change. That's the silent-save
+  // failure that hits the asset Edit modal.
+  const body = (await req.json()) as Record<string, unknown>
+  const isWrapped = body && typeof body.patch === 'object' && body.patch !== null
+  const patch = (isWrapped ? body.patch : body) as AssetPatch
   try {
     return NextResponse.json(updateAsset(id, patch))
   } catch (err) {
