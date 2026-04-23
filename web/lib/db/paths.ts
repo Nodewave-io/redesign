@@ -3,7 +3,7 @@
 // Everything lives under ~/.redesign/ (override via REDESIGN_HOME env
 // var for testing). Nothing else is written outside this dir — that
 // means a clean uninstall is `rm -rf ~/.redesign && npm uninstall -g
-// @nodewave/redesign`.
+// @nodewave-io/redesign`.
 //
 //   ~/.redesign/
 //     db.sqlite           single-file DB (WAL sidecars live next to it)

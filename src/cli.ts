@@ -100,7 +100,7 @@ function printMcpConfig(): void {
     mcpServers: {
       redesign: {
         command: 'npx',
-        args: ['-y', '@nodewave/redesign', 'mcp'],
+        args: ['-y', '@nodewave-io/redesign', 'mcp'],
       },
     },
   }
@@ -118,7 +118,7 @@ async function runInstallMcp(): Promise<number> {
   const cfgPath = path.join(cfgDir, 'mcp.json')
   const entry = {
     command: 'npx',
-    args: ['-y', '@nodewave/redesign', 'mcp'],
+    args: ['-y', '@nodewave-io/redesign', 'mcp'],
   }
 
   const { rename } = await import('node:fs/promises')
@@ -354,7 +354,7 @@ async function runStart(args: string[]): Promise<number> {
   console.log(`  ▲ Data dir: ${REDESIGN_HOME}`)
   console.log('')
   console.log('  Connect Claude Code:')
-  console.log('    npx @nodewave/redesign install-mcp   (auto-installs the MCP entry)')
+  console.log('    npx @nodewave-io/redesign install-mcp   (auto-installs the MCP entry)')
   console.log('    …then restart Claude Code.')
   console.log('')
   console.log('  Press Ctrl-C to stop.')

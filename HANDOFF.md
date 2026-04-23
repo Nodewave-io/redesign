@@ -13,7 +13,7 @@ integration. Pair this with:
 
 ```
 redesign/
-├── package.json           name=@nodewave/redesign, MIT, bin=redesign
+├── package.json           name=@nodewave-io/redesign, MIT, bin=redesign
 ├── tsconfig.json          NodeNext, strict
 ├── LICENSE                MIT
 ├── README.md              user-facing
@@ -168,7 +168,7 @@ is a stub — it prints a friendly "not yet available" message. Once
 
 - [ ] Seed 20 starter component assets via `redesign seed`
 - [ ] `npm pack` dry-run, check tarball contents
-- [ ] Publish as `@nodewave/redesign@0.1.0` (scope already locked in
+- [ ] Publish as `@nodewave-io/redesign@0.1.0` (scope already locked in
       `package.json`)
 - [ ] Mirror repo to `github.com/Nodewave-io/redesign`
 
@@ -217,6 +217,6 @@ is a stub — it prints a friendly "not yet available" message. Once
 From the business plan: *"If a stranger can type one command and
 have Redesign running in under 2 minutes, we win."*
 
-When `npx @nodewave/redesign start` works end-to-end on a fresh Mac
+When `npx @nodewave-io/redesign start` works end-to-end on a fresh Mac
 with only Node 20+ and Claude Code installed, section 8.1 of the
 business plan is done.

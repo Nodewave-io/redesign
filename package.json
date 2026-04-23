@@ -1,5 +1,5 @@
 {
-  "name": "@nodewave/redesign",
+  "name": "@nodewave-io/redesign",
   "version": "0.1.0",
   "description": "Claude-native local editor for LinkedIn / Instagram carousels. MCP-driven, SQLite-backed, zero-cloud.",
   "license": "MIT",

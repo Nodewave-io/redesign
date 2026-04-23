@@ -1,4 +1,4 @@
-# Launch-day playbook for `@nodewave/redesign` v0.1.0
+# Launch-day playbook for `@nodewave-io/redesign` v0.1.0
 
 You (Claude) are the orchestrator for taking this package to public release. Tiago (the user) is non-technical — he depends on you for every command and decision.
 
@@ -6,9 +6,9 @@ This doc is the entire blueprint. Read it top-to-bottom before doing anything el
 
 ## What you're shipping
 
-`@nodewave/redesign` is a local-first CLI + MCP server + Next.js editor that lets a user (with Claude Code) build LinkedIn / Instagram carousels by talking to Claude. Everything runs on the user's machine. SQLite at `~/.redesign/db.sqlite`. No cloud accounts, no telemetry.
+`@nodewave-io/redesign` is a local-first CLI + MCP server + Next.js editor that lets a user (with Claude Code) build LinkedIn / Instagram carousels by talking to Claude. Everything runs on the user's machine. SQLite at `~/.redesign/db.sqlite`. No cloud accounts, no telemetry.
 
-- **NPM scope:** `@nodewave/redesign` (lowercase, npm convention)
+- **NPM scope:** `@nodewave-io/redesign` (lowercase, npm convention)
 - **GitHub:** `github.com/Nodewave-io/redesign` (case-sensitive)
 - **Repo on disk:** `/Users/nodewave/Developer/nodewave/redesign/`
 - **Editor lives in disk repo:** `web/` (Next.js, App Router)
@@ -33,7 +33,7 @@ You can read any source file directly. Don't ask Tiago to summarize the codebase
 - All blocker bug fixes (preview empty, 409 rename race, canvas centering, font dropdown, etc.)
 - Security review + fixes: SSRF allowlist on URL-fetch MCP tools, CSS injection sanitizer on image-layer URLs, install-mcp atomic write + 0600 perms, dev-fallback `next start -H 127.0.0.1`, schema trigger excludes thumbnail-only updates, etc.
 - `redesign install-mcp` command (auto-merges entry into `~/.claude/mcp.json`)
-- CLI defaults to `start` when no subcommand given (`npx @nodewave/redesign` boots editor)
+- CLI defaults to `start` when no subcommand given (`npx @nodewave-io/redesign` boots editor)
 - Geist + System (SF Pro) fonts added to text layers
 - Live-sync polling in editor (1s, refetches when `updated_at` advances and no local edits pending)
 - Component preview pipeline: native dimensions (asset.width × asset.height), contain-fit × 0.86 margin, auto-detected light/dark backdrop
@@ -84,7 +84,7 @@ If anything HIGH or CRITICAL appears, stop. Look at the offending package and de
 
 ### Phase 3 — End-to-end install simulation (15 min)
 
-Goal: prove that a stranger doing `npx @nodewave/redesign install-mcp && npx @nodewave/redesign` from a fresh terminal would get a working setup.
+Goal: prove that a stranger doing `npx @nodewave-io/redesign install-mcp && npx @nodewave-io/redesign` from a fresh terminal would get a working setup.
 
 This isn't testing the running dev server — it's testing the **published tarball flow**.
 
@@ -212,8 +212,8 @@ Once Phases 1-6 are green, give Tiago this exact list to execute himself (he has
 5. **Live smoke test the published package** from a fresh terminal:
    ```bash
    cd /tmp && rm -rf publish-test && mkdir publish-test && cd publish-test
-   npx @nodewave/redesign install-mcp
-   npx @nodewave/redesign
+   npx @nodewave-io/redesign install-mcp
+   npx @nodewave-io/redesign
    ```
    Confirm the editor opens at the printed URL.
 

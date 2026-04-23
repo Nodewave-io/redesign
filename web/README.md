@@ -1,13 +1,13 @@
 # redesign/web
 
-The editor bundled with `@nodewave/redesign`. Next.js 15 + React 19.
+The editor bundled with `@nodewave-io/redesign`. Next.js 15 + React 19.
 
 **Current state (2026-04-22):** every editor file is a byte-identical
 copy of its counterpart in `nw-site/app/admin/media/**`. Nothing has
 been edited yet — the next pass will:
 
 1. Replace `@/lib/supabase` imports with a local API client that hits
-   `/api/posts/*`, `/api/assets/*` routes backed by `@nodewave/redesign`'s
+   `/api/posts/*`, `/api/assets/*` routes backed by `@nodewave-io/redesign`'s
    SQLite repo.
 2. Rip the `supabase.auth.getUser()` / `/admin` redirect logic — this
    is single-user local, no auth needed.

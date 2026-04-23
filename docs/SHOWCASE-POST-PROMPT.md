@@ -33,7 +33,7 @@ Brand:
 
 What it does (so you know what to communicate):
 - Local-first MCP-driven editor for LinkedIn / Instagram carousels
-- `npx @nodewave/redesign start` → editor at localhost + MCP for Claude Code
+- `npx @nodewave-io/redesign start` → editor at localhost + MCP for Claude Code
 - Claude composes slides, you watch the canvas update live, you ship PNGs
 - MIT, runs entirely offline, single SQLite file at ~/.redesign/
 

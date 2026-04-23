@@ -1,8 +1,8 @@
 {
-  "name": "@nodewave/redesign-web",
+  "name": "@nodewave-io/redesign-web",
   "version": "0.1.0-pre",
   "private": true,
-  "description": "Redesign editor — Next.js app bundled inside @nodewave/redesign. Talks to the local SQLite DB via API routes.",
+  "description": "Redesign editor — Next.js app bundled inside @nodewave-io/redesign. Talks to the local SQLite DB via API routes.",
   "scripts": {
     "dev": "next dev -p 3100",
     "build": "next build",

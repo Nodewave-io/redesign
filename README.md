@@ -5,7 +5,7 @@ MIT-licensed, open source, zero cloud. A [Nodewave](https://nodewave.io)
 project.
 
 ```bash
-npx @nodewave/redesign
+npx @nodewave-io/redesign
 ```
 
 That's the whole install. Open `http://localhost:3000`, paste the MCP
@@ -28,7 +28,7 @@ components, layout. You correct, refine, ship.
 ### 1. Boot the editor
 
 ```bash
-npx @nodewave/redesign
+npx @nodewave-io/redesign
 ```
 
 What this does, step by step:
@@ -54,7 +54,7 @@ Paste the snippet `start` printed into either:
 Or just run:
 
 ```bash
-npx @nodewave/redesign mcp-config
+npx @nodewave-io/redesign mcp-config
 ```
 
 Then restart Claude Code. You'll see `redesign` in the MCP server

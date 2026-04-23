@@ -1,8 +1,8 @@
 # Redesign — launch checklist
 
-Ship state for `@nodewave/redesign` v0.1.0. Tiago executes §6–§7 manually (his npm + GitHub creds).
+Ship state for `@nodewave-io/redesign` v0.1.0. Tiago executes §6–§7 manually (his npm + GitHub creds).
 
-- NPM: **`@nodewave/redesign`**
+- NPM: **`@nodewave-io/redesign`**
 - GitHub: **`github.com/Nodewave-io/redesign`**
 - Local repo: `~/Developer/nodewave/redesign`
 
@@ -44,8 +44,8 @@ npm publish --access public
 
 # 5. Smoke-test the live package
 cd /tmp && rm -rf publish-test && mkdir publish-test && cd publish-test
-npx @nodewave/redesign install-mcp
-npx @nodewave/redesign
+npx @nodewave-io/redesign install-mcp
+npx @nodewave-io/redesign
 #  ↳ editor opens at the printed URL → we're live
 ```
 
