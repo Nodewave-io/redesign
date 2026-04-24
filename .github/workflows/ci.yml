@@ -1,0 +1,127 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux-x64
+          - os: macos-14
+            name: macos-arm64
+          - os: macos-13
+            name: macos-x64
+          - os: windows-latest
+            name: windows-x64
+        node: [20, 22]
+
+    name: ${{ matrix.name }} / node-${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install root deps
+        run: npm ci
+
+      - name: Install web deps
+        working-directory: web
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit smoke
+        run: npx tsx scripts/smoke.ts
+
+      - name: Build
+        run: npm run build:all
+
+      - name: Verify tarball has no platform-locked native binaries
+        shell: bash
+        run: |
+          set -e
+          npm pack
+          TARBALL=$(ls nodewave-io-redesign-*.tgz | head -1)
+          echo "Tarball: $TARBALL"
+          # Extract list of .node / .dylib / .so files that look like native binaries.
+          # react-*-server.node.js files are pure JS and expected, filter them out.
+          BAD=$(tar -tzf "$TARBALL" \
+            | grep -E '\.(node|dylib|so|dll)$' \
+            | grep -vE 'react-(dom/)?(cjs/)?(react-dom-)?(server(-legacy)?|static)\.node' \
+            || true)
+          if [ -n "$BAD" ]; then
+            echo "::error::Tarball ships platform-locked native binaries:"
+            echo "$BAD"
+            exit 1
+          fi
+          echo "OK: no platform-locked native binaries in tarball."
+
+      - name: Install tarball in a clean project
+        shell: bash
+        run: |
+          set -e
+          TARBALL="$(pwd)/$(ls nodewave-io-redesign-*.tgz | head -1)"
+          mkdir -p "$RUNNER_TEMP/consumer"
+          cd "$RUNNER_TEMP/consumer"
+          npm init -y > /dev/null
+          npm install "$TARBALL"
+
+      - name: redesign version + doctor
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP/consumer"
+          npx --no @nodewave-io/redesign version
+          npx --no @nodewave-io/redesign doctor
+
+      - name: Boot editor + hit /api/posts (SQLite load check)
+        shell: bash
+        env:
+          REDESIGN_HOME: ${{ runner.temp }}/redesign-home
+        run: |
+          set -e
+          cd "$RUNNER_TEMP/consumer"
+          # Background the server, wait for readiness by polling, then curl.
+          npx --no @nodewave-io/redesign start --port 3999 > server.log 2>&1 &
+          SERVER_PID=$!
+          for i in $(seq 1 30); do
+            if curl -sSf -o /dev/null http://127.0.0.1:3999/api/posts 2>/dev/null; then
+              echo "Server up after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+          # Actual probe: must return HTTP 200 and a JSON array.
+          STATUS=$(curl -s -o body.json -w "%{http_code}" http://127.0.0.1:3999/api/posts || true)
+          echo "HTTP $STATUS"
+          cat body.json || true
+          echo
+          # Clean up subprocess regardless of outcome.
+          kill $SERVER_PID 2>/dev/null || true
+          wait $SERVER_PID 2>/dev/null || true
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Editor /api/posts did not return 200 (got $STATUS) on ${{ matrix.name }} / node-${{ matrix.node }}"
+            echo "--- server.log ---"
+            cat server.log
+            exit 1
+          fi
+
+      - name: Upload server log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-log-${{ matrix.name }}-node${{ matrix.node }}
+          path: ${{ runner.temp }}/consumer/server.log
+          if-no-files-found: ignore
