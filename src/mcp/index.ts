@@ -6,6 +6,8 @@
 // CRITICAL: stdout is the JSON-RPC channel — any console.log would
 // corrupt protocol messages. Diagnostic output MUST go to stderr.
 
+import { realpathSync } from 'node:fs'
+import { pathToFileURL } from 'node:url'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { getDb } from '../db/client.js'
@@ -21,16 +23,16 @@ import { registerInspectTools } from './tools/inspect.js'
 import { registerValidateTool } from './tools/validate.js'
 import { registerScreenshotTool } from './tools/screenshot.js'
 
-async function main(): Promise<void> {
+export async function run(): Promise<void> {
   // Touch the DB once on boot so schema is applied before any tool
   // call runs. Subsequent `getDb()` calls reuse the singleton.
   getDb()
 
   const server = new McpServer(
-    { name: 'redesign', version: '0.1.0' },
+    { name: 'redesign', version: '0.2.2' },
     {
       instructions:
-        "Drives the local Redesign editor at http://localhost:3000. Always call media_get_post before editing so you have the current updated_at for the optimistic-concurrency guard. Layers are free-floating with x/y/w/h/spans — compose slides like web pages. Prefer media_apply_batch over many single writes, and prefer the introspection tools (media_check_alignment / media_check_overlaps / media_validate_layout / media_describe_post) over screenshots whenever the question is geometric.",
+        "Drives the local Redesign editor at http://localhost:3000. Always call media_get_post before editing so you have the current updated_at for the optimistic-concurrency guard. Layers are free-floating with x/y/w/h/spans; compose slides like web pages. Prefer media_apply_batch over many single writes, and prefer the introspection tools (media_check_alignment / media_check_overlaps / media_validate_layout / media_describe_post) over screenshots whenever the question is geometric.",
     },
   )
 
@@ -49,9 +51,39 @@ async function main(): Promise<void> {
   const transport = new StdioServerTransport()
   await server.connect(transport)
   console.error('[redesign-mcp] stdio ready')
+
+  // Keep the process alive until stdin closes (Claude Code disconnects
+  // by closing the pipe). Without this, callers who `await run()` would
+  // resolve immediately after the handshake is set up and could then
+  // call process.exit, killing the server mid-session.
+  await new Promise<void>((resolve) => {
+    const stdin = process.stdin
+    const done = () => resolve()
+    stdin.once('end', done)
+    stdin.once('close', done)
+  })
 }
 
-main().catch((err) => {
-  console.error('[redesign-mcp] fatal', err)
-  process.exit(1)
-})
+// Auto-run only when this file is the process entry (e.g. the `bin`
+// symlink was invoked directly). Don't auto-run on dynamic import from
+// the CLI — the CLI awaits `run()` itself.
+function isEntry(): boolean {
+  const argv1 = process.argv[1]
+  if (!argv1) return false
+  try {
+    return pathToFileURL(realpathSync(argv1)).href === import.meta.url
+  } catch {
+    try {
+      return pathToFileURL(argv1).href === import.meta.url
+    } catch {
+      return false
+    }
+  }
+}
+
+if (isEntry()) {
+  run().catch((err) => {
+    console.error('[redesign-mcp] fatal', err)
+    process.exit(1)
+  })
+}
