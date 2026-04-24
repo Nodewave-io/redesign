@@ -75,7 +75,7 @@ export function seedIcons(opts: SeedOptions): SeedResult {
     createAsset({
       kind: 'component',
       name,
-      description: 'Icon — accepts `size` and `color` props.',
+      description: 'Icon. Accepts `size` and `color` props.',
       usage_notes,
       categories,
       tags,
@@ -102,7 +102,7 @@ export function seedIcons(opts: SeedOptions): SeedResult {
 
 const USAGE_NOTES =
   'SVG icon component (24×24). Props: `size` (default 24), `color` ' +
-  '(default currentColor — inherits the surrounding text color). ' +
+  '(default currentColor, inherits the surrounding text color). ' +
   'Drop on any slide; tint with the `color` prop per slide theme.'
 
 // Classify by name prefix so the Assets page has some structure

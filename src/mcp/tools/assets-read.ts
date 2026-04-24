@@ -13,7 +13,7 @@ export function registerAssetReadTools(server: McpServer): void {
     'media_list_assets',
     {
       description:
-        'List assets from the library. Filter by kind ("image"/"component") and/or category. Returns metadata only — use media_get_asset for source_code.',
+        'List assets from the library. Filter by kind ("image"/"component") and/or category. Returns metadata only; use media_get_asset for source_code.',
       inputSchema: {
         kind: z.enum(['image', 'component']).optional(),
         category: z.string().optional(),
@@ -39,7 +39,7 @@ export function registerAssetReadTools(server: McpServer): void {
     'media_get_asset',
     {
       description:
-        'Fetch a single asset by id. Component assets include the full TSX source under `source_code` — copy it onto a code layer with media_add_layer.',
+        'Fetch a single asset by id. Component assets include the full TSX source under `source_code`; copy it onto a code layer with media_add_layer.',
       inputSchema: { id: z.string().uuid() },
     },
     withLogging('media_get_asset', async ({ id }: { id: string }) => textJson(getAsset(id))),

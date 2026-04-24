@@ -129,7 +129,7 @@ export function registerScreenshotTool(server: McpServer): void {
           content: [
             {
               type: 'text' as const,
-              text: `Rendered ${slides.length} slide(s). Strip composite is not yet implemented — returning slide 1. Use media_screenshot(slideIndex: N) for individual slides.`,
+              text: `Rendered ${slides.length} slide(s). Strip composite is not yet implemented, returning slide 1. Use media_screenshot(slideIndex: N) for individual slides.`,
             },
             {
               type: 'image' as const,
@@ -195,7 +195,7 @@ async function captureSlide(input: CaptureInput): Promise<Uint8Array> {
     const el = await page.$('#nw-slide-root')
     if (!el) {
       throw new Error(
-        `Render page missing #nw-slide-root — the editor may not be serving the /render route.`,
+        `Render page missing #nw-slide-root. The editor may not be serving the /render route.`,
       )
     }
     return await el.screenshot({

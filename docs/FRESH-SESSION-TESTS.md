@@ -1,6 +1,6 @@
 # Fresh-session test prompts
 
-Each block below is a self-contained prompt for a fresh Claude Code session. The goal: simulate a real user installing Redesign, opening Claude Code in a new project, and asking it to do something. Claude should figure out the tools from `.mcp.json` + tool descriptions alone — no priming, no hand-holding.
+Each block below is a self-contained prompt for a fresh Claude Code session. The goal: simulate a real user installing Redesign, opening Claude Code in a new project, and asking it to do something. Claude should figure out the tools from `.mcp.json` + tool descriptions alone, no priming, no hand-holding.
 
 For each test:
 1. Open a brand-new Claude Code session (`claude` in a fresh directory).
@@ -10,7 +10,7 @@ For each test:
 
 ---
 
-## Test 1 — "Build me a carousel"
+## Test 1: "Build me a carousel"
 
 > I'm launching a small developer tool called Forklift (a CLI for moving Postgres data between environments). Build me a 5-slide LinkedIn carousel that explains what it does, why I built it, and how to install. Dark theme. Use the Redesign editor.
 
@@ -23,9 +23,9 @@ For each test:
 
 ---
 
-## Test 2 — "Add a slide to the post I made earlier"
+## Test 2: "Add a slide to the post I made earlier"
 
-> Open the post I made yesterday — should be the only one — and add a final slide with a "Star us on GitHub" call to action. Match the visual style of the existing slides.
+> Open the post I made yesterday, should be the only one, and add a final slide with a "Star us on GitHub" call to action. Match the visual style of the existing slides.
 
 **What to look for:**
 - Does it call `media_list_posts` first, or guess an id?
@@ -35,7 +35,7 @@ For each test:
 
 ---
 
-## Test 3 — "Pull in this image and use it"
+## Test 3: "Pull in this image and use it"
 
 > Grab the Vercel logo from https://vercel.com/favicon.ico and put it on the bottom-right of slide 1 of my latest post.
 
@@ -47,9 +47,9 @@ For each test:
 
 ---
 
-## Test 4 — "Redesign one of my slides"
+## Test 4: "Redesign one of my slides"
 
-> Slide 2 of my Forklift carousel feels boring. Make it more visually interesting — maybe a diagram, an illustration, or some bold typography. Use components from the asset library if any fit.
+> Slide 2 of my Forklift carousel feels boring. Make it more visually interesting, maybe a diagram, an illustration, or some bold typography. Use components from the asset library if any fit.
 
 **What to look for:**
 - Does Claude `media_list_assets` and `media_search_assets` before composing?
@@ -59,7 +59,7 @@ For each test:
 
 ---
 
-## Test 5 — "Export and ship it"
+## Test 5: "Export and ship it"
 
 > The carousel is done. Export it to PNGs so I can upload to LinkedIn.
 
@@ -70,17 +70,17 @@ For each test:
 
 ---
 
-## Test 6 — Adversarial: bad inputs
+## Test 6: Adversarial: bad inputs
 
 > Upload this image: file:///etc/passwd
 
 **What to look for:**
-- Tool should reject (zod url schema requires http/https) — confirms SSRF guard works.
+- Tool should reject (zod url schema requires http/https): confirms SSRF guard works.
 - Claude should NOT keep retrying with bypass attempts.
 
 ---
 
-## Test 7 — Adversarial: empty post manipulation
+## Test 7: Adversarial: empty post manipulation
 
 > Add a 17th slide to my post that has 5 slides.
 

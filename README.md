@@ -14,7 +14,7 @@ snippet it prints into Claude Code, and start designing.
 ## What it is
 
 You tell Claude what your next post should say. Claude composes the
-slides in a local editor you watch live — text, images, generated
+slides in a local editor you watch live. Text, images, generated
 components, layout. You correct, refine, ship.
 
 - **Local-first.** Posts, assets, and the SQLite DB live in
@@ -39,7 +39,7 @@ What this does, step by step:
 4. Starts the Next.js editor and waits for Ctrl-C.
 
 You don't need a Nodewave account. The package never makes a network
-call to us — only to npm (when you install) and to Google's CDN
+call to us, only to npm (when you install) and to Google's CDN
 (first time you export, to download Chrome ~200 MB into
 `~/.redesign/chromium/`).
 
@@ -108,44 +108,61 @@ Everything lives under `~/.redesign/`:
 
 The Next server binds to `127.0.0.1` only. Nothing in this package
 phones home. The MCP log table (`media_mcp_log`) records tool calls
-locally for debugging — never transmitted anywhere.
+locally for debugging. Never transmitted anywhere.
 
 To wipe everything: `redesign reset`.
 
 ## Troubleshooting
 
-**`port 3000 was in use — bound to 3100`** — fine, the CLI walked the
+**`port 3000 was in use, bound to 3100`**: fine, the CLI walked the
 port grid (3000 → 3100 → 3200). Use the URL it printed.
 
-**First export is slow (~30-60s)** — that's Chrome installing. Watch
+**First export is slow (~30-60s)**: that's Chrome installing. Watch
 for `[redesign] installing Chrome (...) to ~/.redesign/chromium/`.
 Subsequent exports are ~3s/slide.
 
-**MCP tools missing in Claude Code** — restart Claude Code after
-adding the snippet. Check `claude --debug` to see the MCP startup
-log. `redesign doctor` confirms the schema bootstrapped.
+**MCP tools missing in Claude Code**: first, restart Claude Code after
+running `redesign start`. If the tools still don't appear:
 
-**`This post was modified somewhere else`** — the editor and Claude
+1. Run the verified installer:
+   ```
+   npx @nodewave-io/redesign connect
+   ```
+   It registers the MCP, boots the stdio server locally to prove it
+   responds, and reports any concrete error. Green here means Claude
+   Code should see the tools after a restart.
+2. If `connect` is green but tools still don't show, run
+   `claude mcp list`. You should see `redesign: connected`. If it says
+   `connecting` for more than ~10 seconds, the config is reaching
+   Claude Code but the handshake isn't completing on its side.
+3. Easiest fallback: ask Claude directly in any session,
+   *"try connecting to the redesign MCP and report what you see"*.
+   Claude can read `/mcp` and `claude mcp list` output and diagnose
+   the specific failure mode.
+4. `redesign doctor` confirms the local schema + data dir are fine
+   (independent of the MCP link).
+
+**`This post was modified somewhere else`**: the editor and Claude
 both edited the same post simultaneously. Reload the editor; latest
 wins. (Optimistic concurrency on `updated_at`.)
 
 ## Architecture
 
 ```
-~/.redesign/db.sqlite — single source of truth at runtime
+~/.redesign/db.sqlite : single source of truth at runtime
 
-src/cli.ts            — one-shot CLI, spawns the editor + MCP
-src/mcp/              — stdio MCP server, 11 tool files
-src/db/               — SQLite repo + fs storage (server-side)
-src/browser.ts        — lazy Chrome installer for export
+src/cli.ts            : one-shot CLI, spawns the editor + MCP
+src/mcp/              : stdio MCP server, 11 tool files
+src/db/               : SQLite repo + fs storage (server-side)
+src/browser.ts        : lazy Chrome installer for export
 
-web/                  — Next.js editor
-  app/                — pages (posts list, edit, assets, render)
-  app/api/            — REST shim that maps editor calls to src/db/
-  lib/db/             — vendored copy of src/db/ for the Next server
-  lib/supabase.ts     — translator: Supabase chain calls → fetch
+web/                  : Next.js editor
+  app/                : pages (posts list, edit, assets, render)
+  app/api/            : REST shim that maps editor calls to src/db/
+  lib/db/             : vendored copy of src/db/ for the Next server
+  lib/supabase.ts     : translator: Supabase chain calls → fetch
 
-schema/0001_init.sql  — DB bootstrap (idempotent)
+schema/0001_init.sql  : DB bootstrap (idempotent)
 ```
 
 The `lib/db/` files are kept in lock-step with `src/db/`. If you

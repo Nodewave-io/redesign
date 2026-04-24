@@ -4,11 +4,11 @@ First public release. Local-first carousel builder for LinkedIn / Instagram: tal
 
 ## What's in the box
 
-- **CLI** — `npx @nodewave-io/redesign` boots the editor; `install-mcp` wires up Claude Code in one command.
-- **MCP server** — 40 tools for reading, writing, laying out, screenshotting, and exporting posts.
-- **Editor** (Next.js, App Router) — free-floating layers with x/y/w/h/spans, live Claude sync, auto-save.
-- **Storage** — SQLite at `~/.redesign/db.sqlite`, assets under `~/.redesign/assets/`. Nothing leaves your machine.
-- **Export** — parallel-pages PNG export with concurrency 4, driven by a lazy-downloaded Chromium.
+- **CLI**: `npx @nodewave-io/redesign` boots the editor; `install-mcp` wires up Claude Code in one command.
+- **MCP server**: 40 tools for reading, writing, laying out, screenshotting, and exporting posts.
+- **Editor** (Next.js, App Router): free-floating layers with x/y/w/h/spans, live Claude sync, auto-save.
+- **Storage**: SQLite at `~/.redesign/db.sqlite`, assets under `~/.redesign/assets/`. Nothing leaves your machine.
+- **Export**: parallel-pages PNG export with concurrency 4, driven by a lazy-downloaded Chromium.
 
 ## Security posture
 
@@ -29,7 +29,7 @@ See [`SECURITY.md`](../SECURITY.md) for the full threat model.
 ## Install
 
 ```bash
-npx @nodewave-io/redesign install-mcp   # one-time — wires up ~/.claude/mcp.json
+npx @nodewave-io/redesign install-mcp   # one-time, wires up ~/.claude/mcp.json
 npx @nodewave-io/redesign                # boots the editor
 ```
 

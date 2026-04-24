@@ -1,6 +1,6 @@
 # Launch-day playbook for `@nodewave-io/redesign` v0.1.0
 
-You (Claude) are the orchestrator for taking this package to public release. Tiago (the user) is non-technical — he depends on you for every command and decision.
+You (Claude) are the orchestrator for taking this package to public release. Tiago (the user) is non-technical, he depends on you for every command and decision.
 
 This doc is the entire blueprint. Read it top-to-bottom before doing anything else, then execute the phases in order.
 
@@ -17,15 +17,15 @@ This doc is the entire blueprint. Read it top-to-bottom before doing anything el
 
 ## Read these first (don't summarize for Tiago, just absorb context)
 
-1. `README.md` — public-facing pitch + install instructions
-2. `LAUNCH-CHECKLIST.md` — running tally of what's shipped vs pending. Some items there are stale (we did most of them yesterday); confirm against current state, don't trust blindly
-3. `SECURITY.md` — threat model + what's defended vs deferred
-4. `package.json` — confirm version is `0.1.0` (not `0.1.0-pre`), confirm `files` list, scripts
-5. `docs/FRESH-SESSION-TESTS.md` — the prompts we use to validate the MCP from cold
-6. `~/.claude/infrastructure/macbook-remote-debug.md` — read if you need to inspect the editor in a real browser via CDP. Already-open debug Chrome may be on `localhost:9223` — try `curl -s http://localhost:9223/json/version` to check
-7. `~/.claude/infrastructure/media-builder.md` and `media-mcp.md` — architecture notes for the editor + MCP
+1. `README.md`: public-facing pitch + install instructions
+2. `LAUNCH-CHECKLIST.md`: running tally of what's shipped vs pending. Some items there are stale (we did most of them yesterday); confirm against current state, don't trust blindly
+3. `SECURITY.md`: threat model + what's defended vs deferred
+4. `package.json`: confirm version is `0.1.0` (not `0.1.0-pre`), confirm `files` list, scripts
+5. `docs/FRESH-SESSION-TESTS.md`: the prompts we use to validate the MCP from cold
+6. `~/.claude/infrastructure/macbook-remote-debug.md`: read if you need to inspect the editor in a real browser via CDP. Already-open debug Chrome may be on `localhost:9223`, try `curl -s http://localhost:9223/json/version` to check
+7. `~/.claude/infrastructure/media-builder.md` and `media-mcp.md`: architecture notes for the editor + MCP
 
-You can read any source file directly. Don't ask Tiago to summarize the codebase — read it.
+You can read any source file directly. Don't ask Tiago to summarize the codebase, read it.
 
 ## State of the world (as of 2026-04-23 evening)
 
@@ -44,7 +44,7 @@ You can read any source file directly. Don't ask Tiago to summarize the codebase
 - 7 Cloudtech 3D icons + 9 component assets (charts, cards, pills, etc.) seeded in Tiago's local DB
 
 **Done today (2026-04-23):**
-- Showcase post complete — 5-slide carousel for the launch (post id `7d87bc1b-...`). Used as the primary proof-of-tool on the landing page.
+- Showcase post complete: 5-slide carousel for the launch (post id `7d87bc1b-...`). Used as the primary proof-of-tool on the landing page.
 - Donut + line chart components saved into the asset library with native dims (760×720 / 880×600), under categories `components, charts`.
 - All 9 existing component assets back-filled with native `width`/`height` (Stat/Quote/Badge/Bar 260×180, Install pill 840×130, Numbered step row 860×48, Eyebrow tag 500×40).
 - MCP asset tools upgraded:
@@ -61,19 +61,19 @@ You can read any source file directly. Don't ask Tiago to summarize the codebase
 
 Six phases, in this order. Don't skip ahead.
 
-### Phase 1 — Sanity check the working tree (5 min)
+### Phase 1: Sanity check the working tree (5 min)
 
 1. `cd ~/Developer/nodewave/redesign`
-2. `git status -s` — expect ~30 modified + ~7 new files. Capture this.
-3. `git log --oneline -5` — note the most recent commits.
+2. `git status -s`: expect ~30 modified + ~7 new files. Capture this.
+3. `git log --oneline -5`: note the most recent commits.
 4. Verify `package.json` has `"version": "0.1.0"` (NOT `-pre`).
-5. Run `npm run typecheck` — should be clean.
-6. Run `npm run build:all` — should produce a clean `dist/` and `web/.next/standalone/`. If anything errors, stop and tell Tiago.
+5. Run `npm run typecheck`: should be clean.
+6. Run `npm run build:all`: should produce a clean `dist/` and `web/.next/standalone/`. If anything errors, stop and tell Tiago.
 7. Run `npm pack --dry-run` and read the file count + size. Expected: ~2918 files, ~21 MB. Anything wildly different = stop and investigate.
 
 If any step fails, fix or escalate before proceeding.
 
-### Phase 2 — npm audit + dependency freshness (5 min)
+### Phase 2: npm audit + dependency freshness (5 min)
 
 ```bash
 npm audit
@@ -82,11 +82,11 @@ cd web && npm audit && cd ..
 
 If anything HIGH or CRITICAL appears, stop. Look at the offending package and decide whether to bump it or accept the risk. Don't ship with an unaddressed HIGH.
 
-### Phase 3 — End-to-end install simulation (15 min)
+### Phase 3: End-to-end install simulation (15 min)
 
 Goal: prove that a stranger doing `npx @nodewave-io/redesign install-mcp && npx @nodewave-io/redesign` from a fresh terminal would get a working setup.
 
-This isn't testing the running dev server — it's testing the **published tarball flow**.
+This isn't testing the running dev server, it's testing the **published tarball flow**.
 
 1. Pack a tarball into `/tmp`:
    ```bash
@@ -134,9 +134,9 @@ This isn't testing the running dev server — it's testing the **published tarba
 
 7. Stop the server (`kill -INT <pid>`).
 
-If ANY step in this phase fails, **stop and report to Tiago** — this means an end user would also fail, and the package isn't ready to publish.
+If ANY step in this phase fails, **stop and report to Tiago**, this means an end user would also fail, and the package isn't ready to publish.
 
-### Phase 4 — Fresh-Claude-Code MCP test (15 min)
+### Phase 4: Fresh-Claude-Code MCP test (15 min)
 
 Goal: prove that when a brand-new Claude Code session connects to the redesign MCP, it can drive the editor.
 
@@ -150,13 +150,13 @@ claude -p "<prompt>" \
 
 Run THREE prompts in parallel (each in a backgrounded shell), capturing stdout. Each should complete in 1-3 minutes:
 
-**Prompt A — read-only audit:**
+**Prompt A, read-only audit:**
 > "You have access to a `redesign` MCP server. Without modifying anything: list all posts, list all assets, search assets for 'chart'. Report back: tool names you called, any descriptions that confused you, did anything fail. Under 150 words."
 
-**Prompt B — write end-to-end:**
+**Prompt B, write end-to-end:**
 > "Create a 2-slide post titled 'Launch test' (dark theme). Add a text layer to slide 0 saying 'Hello world' (large font, centered). Use `media_apply_batch` to do it in one call. Then call `media_screenshot` on slide 0 and confirm visually it looks right. Report tools used + any failures. Under 200 words."
 
-**Prompt C — asset library use:**
+**Prompt C, asset library use:**
 > "Find a chart component in the asset library. Get its source. Report the asset's name, its native width/height (look at the asset's `width`/`height` fields), and the first 100 chars of its source. Don't modify anything. Under 100 words."
 
 Read the captured outputs. Look for:
@@ -164,7 +164,7 @@ Read the captured outputs. Look for:
 - ⚠ Any "I had to guess this argument" or "the description didn't say X" → MCP UX issue, log for v0.2
 - ✓ Clean execution → MCP is launch-ready
 
-### Phase 5 — Final security re-audit (10 min)
+### Phase 5: Final security re-audit (10 min)
 
 Spawn an agent with this prompt (use `general-purpose` subagent type):
 
@@ -172,11 +172,11 @@ Spawn an agent with this prompt (use `general-purpose` subagent type):
 
 If any FAIL: stop and fix before publishing.
 
-### Phase 6 — Pre-publish housekeeping (10 min)
+### Phase 6: Pre-publish housekeeping (10 min)
 
-1. Update `LAUNCH-CHECKLIST.md`: mark items 1-5 done, items 6-7 ready to fire. Don't bloat — turn it into a "next session" doc.
-2. Draft a GitHub release notes file at `docs/RELEASE-NOTES-v0.1.0.md` — bullet list of features + links to relevant files. Tiago will paste this into the GitHub release UI later. ~150 words.
-3. Stage all the changes for commit. **DON'T commit yet** — just verify the diff is sane:
+1. Update `LAUNCH-CHECKLIST.md`: mark items 1-5 done, items 6-7 ready to fire. Don't bloat: turn it into a "next session" doc.
+2. Draft a GitHub release notes file at `docs/RELEASE-NOTES-v0.1.0.md`: bullet list of features + links to relevant files. Tiago will paste this into the GitHub release UI later. ~150 words.
+3. Stage all the changes for commit. **DON'T commit yet**: just verify the diff is sane:
    ```bash
    git status -s
    git diff --stat
@@ -221,11 +221,11 @@ Once Phases 1-6 are green, give Tiago this exact list to execute himself (he has
 
 ## Things to NOT do
 
-- **Don't run `npm publish` yourself** — that's Tiago's call, his account, his provenance.
-- **Don't push to GitHub yourself** — same reason. Set up the commit so it's one command for Tiago.
-- **Don't modify `~/.redesign/` or `~/.claude/mcp.json`** during testing — use isolated paths under `/tmp/redesign-launch-final/`. Tiago is using his real data + config in the running editor.
+- **Don't run `npm publish` yourself**: that's Tiago's call, his account, his provenance.
+- **Don't push to GitHub yourself**: same reason. Set up the commit so it's one command for Tiago.
+- **Don't modify `~/.redesign/` or `~/.claude/mcp.json`** during testing: use isolated paths under `/tmp/redesign-launch-final/`. Tiago is using his real data + config in the running editor.
 - **Don't kill any process you didn't start.** Tiago's editor is probably running on port 3000. Leave it alone.
-- **Don't promote to production / Vercel anywhere** — the landing site lives in `nw-site/` which has its own deploy flow. Tiago handles that.
+- **Don't promote to production / Vercel anywhere**: the landing site lives in `nw-site/` which has its own deploy flow. Tiago handles that.
 
 ## When in doubt
 

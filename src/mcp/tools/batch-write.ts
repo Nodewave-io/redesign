@@ -13,7 +13,7 @@ export function registerBatchTools(server: McpServer): void {
     'media_apply_batch',
     {
       description:
-        "Apply many post mutations in a single transactional call. ONE revision snapshot, ONE updated_at check, ONE DB write — orders of magnitude cheaper than issuing many individual write tools. Use this whenever you have more than one change to make. Operations run in array order; later ops see earlier ops' effects. To reference a layer added in this same batch from a later op (e.g. add_layer + immediately set_code_source on it), pre-mint a UUID, pass it as the add_layer op's `id`, then reference that same id in subsequent ops. Returns new updated_at + addedLayerIds (parallel array, only set for add_layer ops).",
+        "Apply many post mutations in a single transactional call. ONE revision snapshot, ONE updated_at check, ONE DB write: orders of magnitude cheaper than issuing many individual write tools. Use this whenever you have more than one change to make. Operations run in array order; later ops see earlier ops' effects. To reference a layer added in this same batch from a later op (e.g. add_layer + immediately set_code_source on it), pre-mint a UUID, pass it as the add_layer op's `id`, then reference that same id in subsequent ops. Returns new updated_at + addedLayerIds (parallel array, only set for add_layer ops).",
       inputSchema: {
         id: z.string().uuid(),
         expected_updated_at: z.string(),

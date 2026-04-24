@@ -15,7 +15,7 @@ export function registerPostReadTools(server: McpServer): void {
     'media_list_posts',
     {
       description:
-        'List media posts, most-recently-updated first. Returns id/title/theme/page_count/updated_at/thumbnail_url — use media_get_post for full layer data.',
+        'List media posts, most-recently-updated first. Returns id/title/theme/page_count/updated_at/thumbnail_url; use media_get_post for full layer data.',
       inputSchema: {},
     },
     withLogging('media_list_posts', async () => textJson(listPosts())),
@@ -35,7 +35,7 @@ export function registerPostReadTools(server: McpServer): void {
     'media_describe_post',
     {
       description:
-        "Prose summary of a post — slide-by-slide, every layer with its kind, position, and key props. This is the canvas-as-text view so you can 'see' a post without a screenshot.",
+        "Prose summary of a post: slide-by-slide, every layer with its kind, position, and key props. This is the canvas-as-text view so you can 'see' a post without a screenshot.",
       inputSchema: { id: z.string().uuid() },
     },
     withLogging('media_describe_post', async ({ id }: { id: string }) => ({
@@ -57,7 +57,7 @@ function describe(post: MediaPost): string {
       return l.slideIndex <= i && i < l.slideIndex + span
     })
     lines.push(
-      `Slide ${i + 1}${slide.background ? ` (bg ${slide.background})` : ''} — ${onSlide.length} layer${onSlide.length === 1 ? '' : 's'}`,
+      `Slide ${i + 1}${slide.background ? ` (bg ${slide.background})` : ''}: ${onSlide.length} layer${onSlide.length === 1 ? '' : 's'}`,
     )
     for (const l of onSlide) lines.push(`  · ${describeLayer(l, i)}`)
     lines.push('')

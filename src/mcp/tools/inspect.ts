@@ -254,7 +254,7 @@ export function registerInspectTools(server: McpServer): void {
     'media_validate_layout',
     {
       description:
-        'Run the default suite (bounds + overlaps + text overflow) across a post. Returns a single warnings list — empty means clean. Use as a pre-flight before exporting.',
+        'Run the default suite (bounds + overlaps + text overflow) across a post. Returns a single warnings list (empty means clean). Use as a pre-flight before exporting.',
       inputSchema: { id: z.string().uuid() },
     },
     withLogging('media_validate_layout', async ({ id }: { id: string }) => {

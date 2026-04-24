@@ -788,7 +788,7 @@ export function Canvas() {
           }}
           onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--nw-admin-hover)' }}
           onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--nw-admin-surface-inner)' }}
-          title="Reset zoom — fit current slide, stay in stitched"
+          title="Reset zoom: fit current slide, stay in stitched"
         >
           {Math.round(userZoom * 100)}% · reset
         </button>

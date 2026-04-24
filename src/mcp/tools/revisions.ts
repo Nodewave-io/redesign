@@ -41,7 +41,7 @@ export function registerRevisionTools(server: McpServer): void {
     'media_get_revision',
     {
       description:
-        'Fetch a single revision snapshot — the full slides/layers/fields as they were at that point in time. Use to diff against current state before reverting.',
+        'Fetch a single revision snapshot: the full slides/layers/fields as they were at that point in time. Use to diff against current state before reverting.',
       inputSchema: { revisionId: z.string().uuid() },
     },
     withLogging(

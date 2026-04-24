@@ -20,7 +20,7 @@ export function registerAssetCurateTools(server: McpServer): void {
     'media_create_component_asset',
     {
       description:
-        "Register a fresh TSX source as a reusable component asset, without first putting it on a post. Use this when the user pastes/links a 21st.dev / magicui / external snippet and wants it saved to the library. ALWAYS run media_validate_code(source) first to catch syntax errors before they land in the library. ALWAYS draft usage_notes WITH the user (ask intent, themes, sizing, swap points) — don't make them up. Same category guidance as media_save_layer_as_asset.\n\nWidth + height are STRONGLY RECOMMENDED for any component that isn't designed to fill a full 1000×1250 slide (cards, pills, charts, badges, headers, widgets — basically everything except full-bleed backgrounds). Use the dimensions the component was visually designed for. The library preview renders at this exact size with uniform scale-to-fit so borders and proportions stay correct, and the import drops the component centered on a slide at this exact size instead of stretching it. Example: a pill ~840×130, a stat card ~260×180, a chart card ~880×600. If omitted the component will be treated as full-slide (1000×1250) and may distort.",
+        "Register a fresh TSX source as a reusable component asset, without first putting it on a post. Use this when the user pastes/links a 21st.dev / magicui / external snippet and wants it saved to the library. ALWAYS run media_validate_code(source) first to catch syntax errors before they land in the library. ALWAYS draft usage_notes WITH the user (ask intent, themes, sizing, swap points). Don't make them up. Same category guidance as media_save_layer_as_asset.\n\nWidth + height are STRONGLY RECOMMENDED for any component that isn't designed to fill a full 1000×1250 slide (cards, pills, charts, badges, headers, widgets, basically everything except full-bleed backgrounds). Use the dimensions the component was visually designed for. The library preview renders at this exact size with uniform scale-to-fit so borders and proportions stay correct, and the import drops the component centered on a slide at this exact size instead of stretching it. Example: a pill ~840×130, a stat card ~260×180, a chart card ~880×600. If omitted the component will be treated as full-slide (1000×1250) and may distort.",
       inputSchema: {
         name: z.string().min(1).max(200),
         source_code: z.string().min(1).max(100_000),
@@ -73,7 +73,7 @@ export function registerAssetCurateTools(server: McpServer): void {
     'media_save_layer_as_asset',
     {
       description:
-        "Promote a CODE layer from a post into a reusable component asset in the library. Copies the layer's source into a new media_assets row of kind='component'. The post itself is unchanged. Always ASK the user for usage_notes if they didn't supply them — that's the field future sessions read to know when/how to use the asset.\n\nCategory guidance (keep it tight, future Claudes search by these): use ONLY shape kinds ('card','chart','hero','cta','quote','stat'), theme hints ('dark','light'), and domain tags ('crm','finance','sales','marketing'). Skip 'component' (implicit when kind=component), 'slide' (everything renders on a slide), and 'data-viz' for things that aren't real charts. Put granular descriptors in `tags` instead.",
+        "Promote a CODE layer from a post into a reusable component asset in the library. Copies the layer's source into a new media_assets row of kind='component'. The post itself is unchanged. Always ASK the user for usage_notes if they didn't supply them: that's the field future sessions read to know when/how to use the asset.\n\nCategory guidance (keep it tight, future Claudes search by these): use ONLY shape kinds ('card','chart','hero','cta','quote','stat'), theme hints ('dark','light'), and domain tags ('crm','finance','sales','marketing'). Skip 'component' (implicit when kind=component), 'slide' (everything renders on a slide), and 'data-viz' for things that aren't real charts. Put granular descriptors in `tags` instead.",
       inputSchema: {
         postId: z.string().uuid(),
         layerId: z.string().uuid(),
@@ -138,7 +138,7 @@ export function registerAssetCurateTools(server: McpServer): void {
     'media_update_asset',
     {
       description:
-        "Patch an existing asset's metadata — `name`, `description`, `usage_notes`, `categories`, `tags`, `width`, `height`, `source_code`. Use this to refine `usage_notes` once you've seen how an asset works in real slides, or to fix the native `width`/`height` of an older component asset that was saved without dimensions (those render at full slide size 1000×1250 by default and may distort). Cannot change `kind` or `file_url` — re-upload via the UI for those.",
+        "Patch an existing asset's metadata: `name`, `description`, `usage_notes`, `categories`, `tags`, `width`, `height`, `source_code`. Use this to refine `usage_notes` once you've seen how an asset works in real slides, or to fix the native `width`/`height` of an older component asset that was saved without dimensions (those render at full slide size 1000×1250 by default and may distort). Cannot change `kind` or `file_url` (re-upload via the UI for those).",
       inputSchema: {
         id: z.string().uuid(),
         patch: z
@@ -189,7 +189,7 @@ export function registerAssetCurateTools(server: McpServer): void {
     'media_delete_asset',
     {
       description:
-        "Permanently delete an asset by id. For image assets, also removes the underlying file from disk. ASK the user before calling — once gone, the asset is gone (no soft delete). Only use for trial uploads or assets the user explicitly asked to remove.",
+        "Permanently delete an asset by id. For image assets, also removes the underlying file from disk. ASK the user before calling. Once gone, the asset is gone (no soft delete). Only use for trial uploads or assets the user explicitly asked to remove.",
       inputSchema: {
         id: z.string().uuid(),
       },

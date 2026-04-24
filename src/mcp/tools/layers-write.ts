@@ -54,7 +54,7 @@ export function registerLayerWriteTools(server: McpServer): void {
     'media_add_code_layer_from_asset',
     {
       description:
-        "Copy a component-kind asset's source_code into a new code layer on a post. The copy is independent — editing the library asset later won't affect saved posts.",
+        "Copy a component-kind asset's source_code into a new code layer on a post. The copy is independent; editing the library asset later won't affect saved posts.",
       inputSchema: {
         id: z.string().uuid(),
         expected_updated_at: z.string(),
@@ -154,7 +154,7 @@ export function registerLayerWriteTools(server: McpServer): void {
     'media_set_code_source',
     {
       description:
-        "Overwrite the TSX source of a code layer. Use when rewriting the component from scratch — media_update_layer also works but this one reads clearer in logs.",
+        "Overwrite the TSX source of a code layer. Use when rewriting the component from scratch (media_update_layer also works but this one reads clearer in logs).",
       inputSchema: {
         id: z.string().uuid(),
         expected_updated_at: z.string(),
