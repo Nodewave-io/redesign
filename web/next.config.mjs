@@ -14,6 +14,12 @@ const nextConfig = {
   // what we ship in the tarball; the CLI spawns it directly so users
   // don't need `next` installed globally or in their cwd.
   output: 'standalone',
+  // Disable the built-in /_next/image optimizer. The editor renders
+  // slides via plain <img> tags served from ~/.redesign/assets and the
+  // optimizer pipeline (sharp) ships platform-locked native binaries
+  // that break cross-platform installs. No runtime image optimization
+  // is needed for a local single-user tool.
+  images: { unoptimized: true },
 }
 
 export default nextConfig
