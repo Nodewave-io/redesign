@@ -93,6 +93,8 @@ redesign version
 - **~250 MB free disk** for Chrome (downloaded on first export)
 - macOS, Linux, or Windows
 
+Tested on macOS. Linux and Windows feedback welcome, [open an issue](https://github.com/Nodewave-io/redesign/issues) with the output of `npx @nodewave-io/redesign connect` if something breaks.
+
 ## Data + privacy
 
 Everything lives under `~/.redesign/`:
