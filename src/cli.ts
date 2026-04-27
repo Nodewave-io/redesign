@@ -25,7 +25,7 @@ import { closeDb, getDb } from './db/client.js'
 import { writeConfig } from './config.js'
 import { seedIcons } from './seed.js'
 
-const VERSION = '0.3.1'
+const VERSION = '0.3.2'
 
 async function main(argv: string[]): Promise<number> {
   const [cmd, ...rest] = argv
