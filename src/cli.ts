@@ -25,7 +25,7 @@ import { closeDb, getDb } from './db/client.js'
 import { writeConfig } from './config.js'
 import { seedIcons } from './seed.js'
 
-const VERSION = '0.2.2'
+const VERSION = '0.3.1'
 
 async function main(argv: string[]): Promise<number> {
   const [cmd, ...rest] = argv
@@ -64,6 +64,9 @@ async function main(argv: string[]): Promise<number> {
       return runInit()
     case 'seed':
       return runSeed(rest)
+    case 'update':
+    case 'upgrade':
+      return runUpdate()
     default:
       console.error(`unknown command: ${cmd}`)
       printHelp()
@@ -90,6 +93,7 @@ function printHelp(): void {
       '  seed [dir]        Import a folder of TSX icons into the asset library',
       '                    (defaults to ./seed/icons; pass --replace to wipe first)',
       '  doctor            Check your environment is good to go',
+      '  update            Upgrade to the latest version on npm',
       '  reset [--yes]     Wipe ~/.redesign (prompts unless --yes)',
       '  version           Print the version',
       '',
@@ -574,6 +578,35 @@ async function runInit(): Promise<number> {
   closeDb()
   console.log(`Initialized ${DB_PATH}`)
   return 0
+}
+
+// Upgrades the global install to whatever's tagged `latest` on npm.
+// Wraps `npm install -g @nodewave-io/redesign@latest`. Shells out
+// instead of using a programmatic API so the upgrade actually runs in
+// the user's npm prefix (Homebrew, fnm, asdf, etc., each have their
+// own). stdio is inherited so users see npm's own progress output.
+async function runUpdate(): Promise<number> {
+  console.log(`Current version: ${VERSION}`)
+  console.log('Running: npm install -g @nodewave-io/redesign@latest')
+  return await new Promise<number>((resolve) => {
+    const proc = spawn(
+      'npm',
+      ['install', '-g', '@nodewave-io/redesign@latest'],
+      { stdio: 'inherit' },
+    )
+    proc.on('exit', (code) => {
+      if (code === 0) {
+        console.log(
+          '\nUpdate complete. Run `redesign version` to confirm the new version.',
+        )
+      }
+      resolve(code ?? 1)
+    })
+    proc.on('error', (err) => {
+      console.error('npm not found on PATH:', err.message)
+      resolve(1)
+    })
+  })
 }
 
 async function runStart(args: string[]): Promise<number> {

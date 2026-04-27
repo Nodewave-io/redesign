@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Geist, Manrope, Space_Mono } from 'next/font/google'
+import { UserFonts } from './_components/user-fonts'
 import './globals.css'
 import './_styles.css'
 
@@ -29,6 +30,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`font-sans antialiased ${manrope.variable} ${spaceMono.variable} ${geist.variable}`}>
+        {/* Registers @font-face for any user-supplied font under
+            ~/.redesign/fonts/. Empty no-op when the folder is empty. */}
+        <UserFonts />
         {children}
       </body>
     </html>

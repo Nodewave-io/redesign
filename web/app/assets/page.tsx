@@ -17,11 +17,26 @@ import {
   cryptoId,
 } from '../_lib/types'
 import { CodeRunner } from '../_lib/code-runtime'
+import { FONTS_CHANGED_EVENT } from '../_components/user-fonts'
+
+type UserFont = {
+  family: string
+  file: string
+  format: 'truetype' | 'opentype' | 'woff' | 'woff2'
+  mime: string
+  size: number
+}
+
+// Special filter token. The "Fonts" pill in the dropdown sets this so
+// the grid renders only the font cards. Anything else in `filter` is
+// either 'all' or a real asset-category name.
+const FONTS_FILTER = '__fonts__'
 
 export default function AssetsCatalog() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [assets, setAssets] = useState<MediaAsset[]>([])
+  const [fonts, setFonts] = useState<UserFont[]>([])
   const [filter, setFilter] = useState<string>('all')
   const [search, setSearch] = useState('')
   const [showUpload, setShowUpload] = useState(false)
@@ -43,10 +58,17 @@ export default function AssetsCatalog() {
       .select('*')
       .order('created_at', { ascending: false })
     setAssets((data as MediaAsset[]) ?? [])
+    try {
+      const res = await fetch('/api/fonts')
+      setFonts(res.ok ? ((await res.json()) as UserFont[]) : [])
+    } catch {
+      setFonts([])
+    }
   }
   useEffect(() => { if (user) load() }, [user])
 
-  const shown = useMemo(() => {
+  const shownAssets = useMemo(() => {
+    if (filter === FONTS_FILTER) return [] as MediaAsset[]
     const q = search.trim().toLowerCase()
     return assets.filter((a) => {
       if (filter !== 'all' && !(a.categories ?? []).includes(filter)) return false
@@ -64,12 +86,35 @@ export default function AssetsCatalog() {
     })
   }, [assets, filter, search])
 
+  const shownFonts = useMemo(() => {
+    // Hide fonts when a regular category is active (they don't belong
+    // to category buckets). Show them on 'all' or the explicit fonts
+    // filter.
+    if (filter !== 'all' && filter !== FONTS_FILTER) return [] as UserFont[]
+    const q = search.trim().toLowerCase()
+    if (!q) return fonts
+    return fonts.filter((f) => f.family.toLowerCase().includes(q))
+  }, [fonts, filter, search])
+
   const onDelete = async (asset: MediaAsset) => {
     if (!confirm(`Delete "${asset.name}"? This removes the file too.`)) return
     if (asset.storage_path) {
       await supabase.storage.from('media-assets').remove([asset.storage_path])
     }
     await supabase.from('media_assets').delete().eq('id', asset.id)
+    await load()
+  }
+
+  const onDeleteFont = async (font: UserFont) => {
+    if (!confirm(`Delete font "${font.family}"? Posts using it will fall back to the system sans.`)) return
+    const res = await fetch(`/api/fonts/${encodeURIComponent(font.file)}`, { method: 'DELETE' })
+    if (!res.ok) {
+      alert('Delete failed: ' + (await res.text()))
+      return
+    }
+    // Notify <UserFonts /> so the @font-face rule for the deleted
+    // family disappears from the document without a hard refresh.
+    window.dispatchEvent(new Event(FONTS_CHANGED_EVENT))
     await load()
   }
 
@@ -134,10 +179,15 @@ export default function AssetsCatalog() {
               onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--nw-admin-accent)' }}
               onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--nw-admin-surface-border)' }}
             />
-            <CategoryFilter filter={filter} onChange={setFilter} assets={assets} />
+            <CategoryFilter
+              filter={filter}
+              onChange={setFilter}
+              assets={assets}
+              fontCount={fonts.length}
+            />
           </div>
 
-          {shown.length === 0 ? (
+          {shownAssets.length === 0 && shownFonts.length === 0 ? (
             <div
               className="rounded-3xl flex items-center justify-center py-24"
               style={{
@@ -146,7 +196,7 @@ export default function AssetsCatalog() {
               }}
             >
               <p className="text-sm" style={{ color: 'var(--nw-admin-muted)' }}>
-                Nothing matches. Adjust the filter or upload something.
+                No matches. Try a different filter or upload something.
               </p>
             </div>
           ) : (
@@ -157,7 +207,10 @@ export default function AssetsCatalog() {
               // than stretching the cards.
               style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}
             >
-              {shown.map((a) => (
+              {shownFonts.map((f) => (
+                <FontCard key={f.file} font={f} onDelete={() => onDeleteFont(f)} />
+              ))}
+              {shownAssets.map((a) => (
                 <AssetCard
                   key={a.id}
                   asset={a}
@@ -198,10 +251,12 @@ function CategoryFilter({
   filter,
   onChange,
   assets,
+  fontCount,
 }: {
   filter: string
   onChange: (f: string) => void
   assets: MediaAsset[]
+  fontCount: number
 }) {
   // Ranked by asset count so the most-used category sits at the top
   // of the dropdown. SUGGESTED_CATEGORIES ignored — reflect reality.
@@ -239,12 +294,18 @@ function CategoryFilter({
     }
   }, [open])
 
-  // No categories yet? Skip the control entirely. Must come AFTER all
-  // hook calls — React enforces stable hook order across renders, and
-  // the asset list is empty on the first render before load() resolves.
-  if (inUse.length === 0) return null
+  // No categories AND no fonts? Skip the control entirely. Must come
+  // AFTER all hook calls (React enforces stable hook order across
+  // renders, and the asset list is empty on the first render before
+  // load() resolves).
+  if (inUse.length === 0 && fontCount === 0) return null
 
-  const label = filter === 'all' ? 'All categories' : filter
+  const label =
+    filter === 'all'
+      ? 'All categories'
+      : filter === FONTS_FILTER
+        ? 'Fonts'
+        : filter
 
   return (
     <div ref={rootRef} className="relative">
@@ -300,6 +361,21 @@ function CategoryFilter({
                 setOpen(false)
               }}
             />
+            {fontCount > 0 && (
+              // Fonts is a synthetic category (fonts don't live in
+              // media_assets). Sits at the top of the list under "All"
+              // so it's findable, with the live count of registered
+              // user fonts.
+              <DropdownItem
+                label="Fonts"
+                count={fontCount}
+                active={filter === FONTS_FILTER}
+                onClick={() => {
+                  onChange(FONTS_FILTER)
+                  setOpen(false)
+                }}
+              />
+            )}
             {inUse.map(([name, count]) => (
               <DropdownItem
                 key={name}
@@ -356,6 +432,85 @@ function DropdownItem({
         </span>
       )}
     </button>
+  )
+}
+
+// Font card. Same outer shell + aspect ratio as AssetCard so the grid
+// stays visually uniform. The "preview" is "Aa Bb Cc" rendered in the
+// uploaded font (registered via @font-face by <UserFonts />), centered
+// large in the card. The font's family name shows as the card title.
+function FontCard({ font, onDelete }: { font: UserFont; onDelete: () => void }) {
+  // Quote the family in the inline style so names with spaces or
+  // hyphens still match the @font-face rule.
+  const familyCss = `"${font.family.replace(/"/g, '\\"')}", system-ui, sans-serif`
+  return (
+    <div
+      className="rounded-3xl"
+      style={{
+        background: 'var(--nw-admin-surface-outer)',
+        border: '1px solid var(--nw-admin-border-outer)',
+        padding: 12,
+      }}
+    >
+      <div
+        className="rounded-2xl overflow-hidden relative aspect-square flex items-center justify-center px-4"
+        style={{
+          background: 'var(--nw-admin-surface-inner)',
+          border: '1px solid rgba(24,18,15,0.06)',
+        }}
+      >
+        {/* Specimen string sits on a single line, horizontally centered.
+            "AaBbCc" run-together (no spaces) is the convention Apple's
+            Font Book and most type-foundry one-line specimens use; it
+            shows uppercase + lowercase forms in one glance. */}
+        <p
+          className="select-none"
+          style={{
+            fontFamily: familyCss,
+            fontSize: 36,
+            fontWeight: 500,
+            color: 'var(--nw-admin-fg)',
+            lineHeight: 1,
+            letterSpacing: 0,
+            whiteSpace: 'nowrap',
+            textAlign: 'center',
+          }}
+        >
+          AaBbCc
+        </p>
+        <span
+          className="absolute top-2 left-2 text-[10px] font-medium px-2 py-0.5 rounded-full"
+          style={{
+            background: 'var(--nw-admin-surface-inner)',
+            color: 'var(--nw-admin-fg)',
+            border: '1px solid rgba(24,18,15,0.08)',
+          }}
+        >
+          Font
+        </span>
+      </div>
+
+      <div className="mt-3 space-y-2">
+        <p
+          className="text-sm font-medium truncate"
+          style={{ color: 'var(--nw-admin-fg)' }}
+          title={font.family}
+        >
+          {font.family}
+        </p>
+        <p
+          className="text-[11px] leading-snug"
+          style={{ color: 'rgba(24,18,15,0.55)' }}
+        >
+          {font.format} · {(font.size / 1024).toFixed(0)} KB
+        </p>
+        <div className="flex items-center gap-1 pt-1">
+          <IconAction onClick={onDelete} title="Delete" danger>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /></svg>
+          </IconAction>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -579,8 +734,14 @@ function IconAction({
 // ─── Upload / Edit modal ───────────────────────────────────────────
 // Same shell for both; EditModal pre-fills from an existing asset.
 
+// UI-only kind that adds 'font' on top of the domain AssetKind. Fonts
+// don't get rows in media_assets; they live as files under
+// ~/.redesign/fonts/ and the UploadModal branches on this to call
+// /api/fonts instead of the assets table.
+type DraftKind = AssetKind | 'font'
+
 type DraftForm = {
-  kind: AssetKind
+  kind: DraftKind
   name: string
   description: string
   usage_notes: string
@@ -617,6 +778,35 @@ function UploadModal({
   const [submitting, setSubmitting] = useState(false)
 
   const submit = async () => {
+    // Fonts skip the asset metadata fields; just need the file.
+    if (draft.kind === 'font') {
+      if (!draft.file) {
+        alert('Drop or pick a font file (.ttf, .otf, .woff, .woff2).')
+        return
+      }
+      setSubmitting(true)
+      try {
+        const form = new FormData()
+        form.append('file', draft.file)
+        const res = await fetch('/api/fonts', { method: 'POST', body: form })
+        const json = (await res.json()) as { family?: string; error?: string }
+        if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`)
+        // Tell <UserFonts /> in the root layout to refetch and inject
+        // the new @font-face rule. Without this, the new FontCard
+        // renders in the fallback sans until the user hard-refreshes.
+        window.dispatchEvent(new Event(FONTS_CHANGED_EVENT))
+        alert(
+          `Font uploaded. Use fontFamily "${json.family}" on text layers.`,
+        )
+        onDone()
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err)
+        alert(`Upload failed: ${msg}`)
+      } finally {
+        setSubmitting(false)
+      }
+      return
+    }
     if (!draft.name.trim()) {
       alert('Name is required.')
       return
@@ -675,10 +865,18 @@ function UploadModal({
     }
   }
 
+  // Branch the modal copy so a font upload reads as a font upload, not
+  // the generic "asset" wording, which is confusing when fonts aren't
+  // assets in the DB sense.
+  const isFont = draft.kind === 'font'
   return (
     <AssetFormModal
-      title="New asset"
-      submitLabel={submitting ? 'Uploading…' : 'Save asset'}
+      title={isFont ? 'New font' : 'New asset'}
+      submitLabel={
+        isFont
+          ? submitting ? 'Uploading…' : 'Upload font'
+          : submitting ? 'Saving…' : 'Save asset'
+      }
       onSubmit={submit}
       onClose={onClose}
       submitting={submitting}
@@ -846,8 +1044,8 @@ function AssetFormModal({
             </div>
           )}
 
-          {/* Media area: drop zone (image) or source textarea (code). */}
-          {draft.kind === 'image' ? (
+          {/* Media area: image drop zone, code textarea, or font drop. */}
+          {draft.kind === 'image' && (
             <div className="mb-5">
               <Label>File</Label>
               <DropZone
@@ -862,7 +1060,8 @@ function AssetFormModal({
                 }}
               />
             </div>
-          ) : (
+          )}
+          {draft.kind === 'component' && (
             <div className="mb-5">
               <Label>Source (TSX)</Label>
               <textarea
@@ -895,7 +1094,23 @@ function AssetFormModal({
               )}
             </div>
           )}
+          {draft.kind === 'font' && (
+            <div className="mb-5">
+              <Label>Font file</Label>
+              <FontDropZone
+                file={draft.file}
+                onFile={(file) => setDraft({ ...draft, file, previewUrl: null })}
+              />
+              <p className="mt-3 text-[12px]" style={{ color: 'var(--nw-admin-muted)' }}>
+                Accepts .ttf, .otf, .woff, .woff2. Maximum 5 MB. The font family
+                will be the filename without extension; reference it by that
+                exact name in any text layer.
+              </p>
+            </div>
+          )}
 
+          {draft.kind !== 'font' && (
+          <>
           <div className="grid md:grid-cols-2 gap-4 mb-4">
             <div>
               <Label>Title</Label>
@@ -942,6 +1157,8 @@ function AssetFormModal({
               rows={3}
             />
           </div>
+          </>
+          )}
 
           <div className="flex items-center justify-end gap-2">
             <button
@@ -981,7 +1198,16 @@ function Label({ children }: { children: React.ReactNode }) {
   )
 }
 
-function KindToggle({ value, onChange }: { value: AssetKind; onChange: (k: AssetKind) => void }) {
+// Three-segment toggle. The active-pill `left` formula is computed so
+// the indicator slides cleanly between the three positions.
+function KindToggle({ value, onChange }: { value: DraftKind; onChange: (k: DraftKind) => void }) {
+  const options: { key: DraftKind; label: string }[] = [
+    { key: 'image', label: 'Image' },
+    { key: 'component', label: 'Component' },
+    { key: 'font', label: 'Font' },
+  ]
+  const index = Math.max(0, options.findIndex((o) => o.key === value))
+  const segment = 100 / options.length
   return (
     <div
       className="relative flex items-center rounded-full w-full"
@@ -996,37 +1222,31 @@ function KindToggle({ value, onChange }: { value: AssetKind; onChange: (k: Asset
         className="absolute rounded-full pointer-events-none"
         style={{
           top: 4, bottom: 4,
-          left: value === 'image' ? 4 : 'calc(50% + 0px)',
-          width: 'calc(50% - 4px)',
+          left: `calc(${index * segment}% + 4px)`,
+          width: `calc(${segment}% - 8px)`,
           background: 'rgba(24,18,15,0.08)',
           border: '1px solid rgba(24,18,15,0.18)',
           transition: 'left 250ms cubic-bezier(0.4,0,0.2,1)',
         }}
       />
-      <button
-        type="button"
-        onClick={() => onChange('image')}
-        className="relative z-10 flex-1 text-sm rounded-full"
-        style={{
-          color: value === 'image' ? 'var(--nw-admin-fg)' : 'rgba(24,18,15,0.55)',
-          fontWeight: value === 'image' ? 500 : 400,
-          height: '100%',
-        }}
-      >
-        Image
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange('component')}
-        className="relative z-10 flex-1 text-sm rounded-full"
-        style={{
-          color: value === 'component' ? 'var(--nw-admin-fg)' : 'rgba(24,18,15,0.55)',
-          fontWeight: value === 'component' ? 500 : 400,
-          height: '100%',
-        }}
-      >
-        Component
-      </button>
+      {options.map((o) => {
+        const active = value === o.key
+        return (
+          <button
+            key={o.key}
+            type="button"
+            onClick={() => onChange(o.key)}
+            className="relative z-10 flex-1 text-sm rounded-full"
+            style={{
+              color: active ? 'var(--nw-admin-fg)' : 'rgba(24,18,15,0.55)',
+              fontWeight: active ? 500 : 400,
+              height: '100%',
+            }}
+          >
+            {o.label}
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -1084,6 +1304,89 @@ function DropZone({
       <input
         type="file"
         accept="image/png,image/svg+xml,image/jpeg,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) onFile(f)
+          e.currentTarget.value = ''
+        }}
+      />
+      {file && (
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onFile(null) }}
+          className="absolute top-3 right-3 w-7 h-7 rounded-full flex items-center justify-center"
+          style={{
+            background: 'var(--nw-admin-surface-inner)',
+            border: '1px solid rgba(24,18,15,0.12)',
+            color: 'var(--nw-admin-fg)',
+          }}
+          aria-label="Remove"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
+      )}
+    </label>
+  )
+}
+
+// Drop target for fonts. Same shell as DropZone but slimmer (fonts have
+// no preview to show), accepts only .ttf/.otf/.woff/.woff2, and
+// surfaces the chosen filename instead of an image preview.
+function FontDropZone({
+  file,
+  onFile,
+}: {
+  file: File | null
+  onFile: (f: File | null) => void
+}) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <label
+      onDragOver={(e) => { e.preventDefault(); setHovered(true) }}
+      onDragLeave={() => setHovered(false)}
+      onDrop={(e) => {
+        e.preventDefault()
+        setHovered(false)
+        const f = e.dataTransfer.files?.[0]
+        if (f) onFile(f)
+      }}
+      className="relative flex items-center justify-center rounded-3xl cursor-pointer overflow-hidden"
+      style={{
+        height: 140,
+        background: 'var(--nw-admin-surface-inner)',
+        border: `1px dashed ${hovered ? 'var(--nw-admin-accent)' : 'rgba(24,18,15,0.18)'}`,
+      }}
+    >
+      {file ? (
+        <div className="flex flex-col items-center gap-1 text-center pointer-events-none px-4">
+          <p className="text-sm font-medium truncate max-w-full" style={{ color: 'var(--nw-admin-fg)' }}>
+            {file.name}
+          </p>
+          <p className="text-[11px]" style={{ color: 'rgba(24,18,15,0.5)' }}>
+            {(file.size / 1024).toFixed(0)} KB ready to upload
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-2 text-center pointer-events-none">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'rgba(24,18,15,0.35)' }}>
+            <path d="M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2" />
+            <line x1="9" y1="20" x2="15" y2="20" />
+            <line x1="12" y1="4" x2="12" y2="20" />
+          </svg>
+          <p className="text-sm" style={{ color: 'rgba(24,18,15,0.55)' }}>
+            Drop a font file, or click to pick
+          </p>
+          <p className="text-[11px]" style={{ color: 'rgba(24,18,15,0.4)' }}>
+            .ttf, .otf, .woff, .woff2 up to 5 MB
+          </p>
+        </div>
+      )}
+      <input
+        type="file"
+        accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2"
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0]

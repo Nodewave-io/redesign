@@ -90,7 +90,10 @@ export type LayerKind =
 export type TextLayer = BaseLayer & {
   kind: 'text'
   text: string
-  fontFamily?: 'display' | 'mono' | 'sans' | 'geist' | 'system'
+  // Built-in aliases (display / mono / sans / geist / system) OR any
+  // user font family registered from ~/.redesign/fonts/. The renderer
+  // falls back to the literal family name for unknown keys.
+  fontFamily?: string
   fontSize: number
   fontWeight: 400 | 500 | 600 | 700
   color: string

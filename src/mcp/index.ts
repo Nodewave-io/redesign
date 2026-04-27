@@ -11,6 +11,9 @@ import { pathToFileURL } from 'node:url'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { getDb } from '../db/client.js'
+import { registerCollectionReadTools } from './tools/collections-read.js'
+import { registerCollectionWriteTools } from './tools/collections-write.js'
+import { registerFontTools } from './tools/fonts-read.js'
 import { registerPostReadTools } from './tools/posts-read.js'
 import { registerPostWriteTools } from './tools/posts-write.js'
 import { registerLayerWriteTools } from './tools/layers-write.js'
@@ -29,13 +32,16 @@ export async function run(): Promise<void> {
   getDb()
 
   const server = new McpServer(
-    { name: 'redesign', version: '0.2.2' },
+    { name: 'redesign', version: '0.3.1' },
     {
       instructions:
-        "Drives the local Redesign editor at http://localhost:3000. Always call media_get_post before editing so you have the current updated_at for the optimistic-concurrency guard. Layers are free-floating with x/y/w/h/spans; compose slides like web pages. Prefer media_apply_batch over many single writes, and prefer the introspection tools (media_check_alignment / media_check_overlaps / media_validate_layout / media_describe_post) over screenshots whenever the question is geometric.",
+        "Drives the local Redesign editor at http://localhost:3000. Posts are grouped into collections (e.g. one per company/client). Every post belongs to exactly one collection. Before creating a post, call media_list_collections and either infer the right collection_id from context or ask the user. Always call media_get_post before editing so you have the current updated_at for the optimistic-concurrency guard. Layers are free-floating with x/y/w/h/spans; compose slides like web pages. Prefer media_apply_batch over many single writes, and prefer the introspection tools (media_check_alignment / media_check_overlaps / media_validate_layout / media_describe_post) over screenshots whenever the question is geometric. For text layers, call media_list_fonts to see available font families (built-ins plus any custom font under ~/.redesign/fonts/) and pass the family verbatim in fontFamily.",
     },
   )
 
+  registerCollectionReadTools(server)
+  registerCollectionWriteTools(server)
+  registerFontTools(server)
   registerPostReadTools(server)
   registerPostWriteTools(server)
   registerLayerWriteTools(server)

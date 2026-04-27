@@ -493,19 +493,13 @@ function TextInspector({ layer }: { layer: TextLayer }) {
       </Field>
       <div className="grid grid-cols-2 gap-2">
         <Field label="Font">
-          <select
+          <FontSelect
             value={layer.fontFamily ?? 'display'}
-            onChange={(e) => editor.updateLayer(layer.id, { fontFamily: e.target.value as any })}
-            className={inputClass}
-            style={inputStyle}
-            {...inputFocus}
-          >
-            <option value="display">Manrope</option>
-            <option value="mono">Space Mono</option>
-            <option value="sans">Inter</option>
-            <option value="geist">Geist</option>
-            <option value="system">System (SF Pro)</option>
-          </select>
+            onChange={(v) => editor.updateLayer(layer.id, { fontFamily: v })}
+            inputClass={inputClass}
+            inputStyle={inputStyle}
+            inputFocus={inputFocus}
+          />
         </Field>
         <Field label="Weight">
           <select
@@ -689,4 +683,77 @@ function relativeTime(ms: number): string {
   if (ms < 3600_000) return `${Math.floor(ms / 60_000)}m ago`
   if (ms < 86_400_000) return `${Math.floor(ms / 3600_000)}h ago`
   return `${Math.floor(ms / 86_400_000)}d ago`
+}
+
+// Font picker: built-in aliases at the top, then any user-uploaded
+// fonts discovered via /api/fonts. Fetched once on mount; the user
+// font list rarely changes mid-session, so we don't poll. If a layer
+// references a custom font that's been deleted, the value still shows
+// in the dropdown so the user can see what was meant.
+function FontSelect({
+  value,
+  onChange,
+  inputClass,
+  inputStyle,
+  inputFocus,
+}: {
+  value: string
+  onChange: (v: string) => void
+  inputClass: string
+  inputStyle: React.CSSProperties
+  inputFocus: Record<string, unknown>
+}) {
+  type UserFont = { family: string; file: string }
+  const [userFonts, setUserFonts] = useState<UserFont[]>([])
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/fonts')
+      .then((r) => (r.ok ? (r.json() as Promise<UserFont[]>) : []))
+      .then((list) => {
+        if (!cancelled) setUserFonts(list)
+      })
+      .catch(() => {
+        if (!cancelled) setUserFonts([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // If the current value isn't a built-in or a known user font, still
+  // surface it as an option (otherwise React's controlled select would
+  // silently snap to the first option, dropping the user's intent).
+  const builtins = ['display', 'mono', 'sans', 'geist', 'system']
+  const known = new Set([...builtins, ...userFonts.map((f) => f.family)])
+  const orphan = !known.has(value) ? value : null
+
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={inputClass}
+      style={inputStyle}
+      {...inputFocus}
+    >
+      <option value="display">Manrope</option>
+      <option value="mono">Space Mono</option>
+      <option value="sans">Inter</option>
+      <option value="geist">Geist</option>
+      <option value="system">System (SF Pro)</option>
+      {userFonts.length > 0 && (
+        <optgroup label="Your fonts">
+          {userFonts.map((f) => (
+            <option key={f.file} value={f.family}>
+              {f.family}
+            </option>
+          ))}
+        </optgroup>
+      )}
+      {orphan && (
+        <optgroup label="Missing">
+          <option value={orphan}>{orphan} (not registered)</option>
+        </optgroup>
+      )}
+    </select>
+  )
 }

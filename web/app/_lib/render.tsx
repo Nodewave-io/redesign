@@ -7,7 +7,10 @@ import type { Layer, Theme } from './types'
 import { themeColors } from './types'
 import { CodeRunner } from './code-runtime'
 
-const FONT_FAMILY_MAP = {
+// Built-in font aliases. Anything not in this map is treated as a
+// user-supplied font family name (registered by <UserFonts /> from
+// /api/fonts) and rendered as `"<name>", system-ui, sans-serif`.
+const FONT_FAMILY_MAP: Record<string, string> = {
   display: 'var(--font-display), Manrope, system-ui, sans-serif',
   mono: 'var(--font-mono-accent), "Space Mono", ui-monospace, monospace',
   sans: 'Inter, system-ui, -apple-system, sans-serif',
@@ -19,6 +22,13 @@ const FONT_FAMILY_MAP = {
   // generic system sans (the SF Pro family isn't installed in the
   // headless Chrome). Use `geist` or `sans` if export fidelity matters.
   system: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif',
+}
+
+function resolveFontFamily(name: string | undefined): string {
+  const key = name ?? 'display'
+  if (FONT_FAMILY_MAP[key]) return FONT_FAMILY_MAP[key]
+  // User font: quote the family in case it has spaces or punctuation.
+  return `"${key.replace(/"/g, '\\"')}", system-ui, sans-serif`
 }
 
 export function LayerNode({ layer, theme }: { layer: Layer; theme: Theme }) {
@@ -39,8 +49,7 @@ export function LayerNode({ layer, theme }: { layer: Layer; theme: Theme }) {
 
   switch (layer.kind) {
     case 'text': {
-      const family =
-        FONT_FAMILY_MAP[layer.fontFamily ?? 'display'] ?? FONT_FAMILY_MAP.display
+      const family = resolveFontFamily(layer.fontFamily)
       return (
         <div
           style={{

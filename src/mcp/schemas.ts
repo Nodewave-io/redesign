@@ -25,7 +25,10 @@ export const textLayerInput = z.object({
   kind: z.literal('text'),
   ...base,
   text: z.string(),
-  fontFamily: z.enum(['display', 'mono', 'sans', 'geist', 'system']).optional(),
+  // Built-in aliases (display / mono / sans / geist / system) OR any
+  // user font family discoverable via media_list_fonts. Free-form
+  // string so user-supplied .ttf/.woff2 names work without redeploy.
+  fontFamily: z.string().min(1).max(120).optional(),
   fontSize: z.number().positive(),
   fontWeight: z.union([z.literal(400), z.literal(500), z.literal(600), z.literal(700)]),
   color: z.string(),
@@ -101,7 +104,7 @@ export const layerPatch = z
     z: z.number().int().optional(),
     locked: z.boolean().optional(),
     text: z.string().optional(),
-    fontFamily: z.enum(['display', 'mono', 'sans', 'geist', 'system']).optional(),
+    fontFamily: z.string().min(1).max(120).optional(),
     fontSize: z.number().positive().optional(),
     fontWeight: z
       .union([z.literal(400), z.literal(500), z.literal(600), z.literal(700)])

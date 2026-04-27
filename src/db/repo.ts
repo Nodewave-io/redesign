@@ -19,6 +19,7 @@ import { getDb } from './client.js'
 import type {
   Layer,
   MediaAsset,
+  MediaCollection,
   MediaPost,
   MediaPostRevision,
   McpLogRow,
@@ -66,21 +67,93 @@ export class NotFoundError extends Error {
   }
 }
 
+// ─── Collections ──────────────────────────────────────────────────
+
+export function listCollections(): MediaCollection[] {
+  return getDb()
+    .prepare<[], MediaCollection>(
+      `SELECT id, name, created_at, updated_at
+         FROM media_collections
+         ORDER BY created_at ASC`,
+    )
+    .all()
+}
+
+export function getCollection(id: string): MediaCollection {
+  const row = getDb()
+    .prepare<[string], MediaCollection>(
+      `SELECT id, name, created_at, updated_at FROM media_collections WHERE id = ?`,
+    )
+    .get(id)
+  if (!row) throw new NotFoundError('media_collections', id)
+  return row
+}
+
+export function createCollection(name: string): MediaCollection {
+  const id = randomUUID()
+  getDb()
+    .prepare(`INSERT INTO media_collections (id, name) VALUES (?, ?)`)
+    .run(id, name)
+  return getCollection(id)
+}
+
+export function updateCollection(id: string, name: string): MediaCollection {
+  const ts = nowMonotonic()
+  const info = getDb()
+    .prepare(
+      `UPDATE media_collections SET name = ?, updated_at = ? WHERE id = ?`,
+    )
+    .run(name, ts, id)
+  if (info.changes === 0) throw new NotFoundError('media_collections', id)
+  return getCollection(id)
+}
+
+// Refuses to delete collections that still hold posts. Forces the
+// caller to move or delete those posts explicitly so we never silently
+// orphan content. The schema's ON DELETE RESTRICT FK would also reject
+// it, but the explicit count gives a friendlier error message.
+export function deleteCollection(id: string): void {
+  const db = getDb()
+  const used = db
+    .prepare<[string], { n: number }>(
+      `SELECT COUNT(*) AS n FROM media_posts WHERE collection_id = ?`,
+    )
+    .get(id)
+  if (used && used.n > 0) {
+    throw new Error(
+      `Collection ${id} still has ${used.n} post${used.n === 1 ? '' : 's'}. ` +
+        'Move or delete them first.',
+    )
+  }
+  const info = db.prepare(`DELETE FROM media_collections WHERE id = ?`).run(id)
+  if (info.changes === 0) throw new NotFoundError('media_collections', id)
+}
+
 // ─── Posts ────────────────────────────────────────────────────────
 
 export type PostSummary = Pick<
   MediaPost,
-  'id' | 'title' | 'theme' | 'page_count' | 'updated_at' | 'thumbnail_url'
+  'id' | 'title' | 'theme' | 'page_count' | 'updated_at' | 'thumbnail_url' | 'collection_id'
 >
 
-export function listPosts(): PostSummary[] {
-  const rows = getDb()
-    .prepare<[], PostSummaryRow>(
-      `SELECT id, title, theme, page_count, updated_at, thumbnail_url
-         FROM media_posts
-         ORDER BY updated_at DESC`,
-    )
-    .all()
+export function listPosts(filter?: { collection_id?: string }): PostSummary[] {
+  const db = getDb()
+  const rows = filter?.collection_id
+    ? db
+        .prepare<[string], PostSummaryRow>(
+          `SELECT id, title, theme, page_count, updated_at, thumbnail_url, collection_id
+             FROM media_posts
+             WHERE collection_id = ?
+             ORDER BY updated_at DESC`,
+        )
+        .all(filter.collection_id)
+    : db
+        .prepare<[], PostSummaryRow>(
+          `SELECT id, title, theme, page_count, updated_at, thumbnail_url, collection_id
+             FROM media_posts
+             ORDER BY updated_at DESC`,
+        )
+        .all()
   return rows.map((r) => ({
     id: r.id,
     title: r.title,
@@ -88,6 +161,7 @@ export function listPosts(): PostSummary[] {
     page_count: r.page_count,
     updated_at: r.updated_at,
     thumbnail_url: r.thumbnail_url,
+    collection_id: r.collection_id,
   }))
 }
 
@@ -100,6 +174,7 @@ export function getPost(id: string): MediaPost {
 }
 
 export type NewPostInput = {
+  collection_id: string
   title?: string
   page_count?: number
   aspect_ratio?: string
@@ -110,6 +185,9 @@ export type NewPostInput = {
 }
 
 export function createPost(input: NewPostInput): MediaPost {
+  if (!input.collection_id) {
+    throw new Error('createPost requires collection_id')
+  }
   const id = randomUUID()
   const pageCount = input.page_count ?? 3
   // If the caller gives a page_count but no slides, auto-generate
@@ -123,8 +201,8 @@ export function createPost(input: NewPostInput): MediaPost {
   })
   getDb()
     .prepare(
-      `INSERT INTO media_posts (id, title, page_count, aspect_ratio, theme, slides, thumbnail_url)
-       VALUES (@id, @title, @page_count, @aspect_ratio, @theme, @slides, @thumbnail_url)`,
+      `INSERT INTO media_posts (id, title, page_count, aspect_ratio, theme, slides, thumbnail_url, collection_id)
+       VALUES (@id, @title, @page_count, @aspect_ratio, @theme, @slides, @thumbnail_url, @collection_id)`,
     )
     .run({
       id,
@@ -134,6 +212,7 @@ export function createPost(input: NewPostInput): MediaPost {
       theme: input.theme ?? 'dark',
       slides: slidesJson,
       thumbnail_url: input.thumbnail_url ?? null,
+      collection_id: input.collection_id,
     })
   return getPost(id)
 }
@@ -419,6 +498,7 @@ type PostSummaryRow = {
   page_count: number
   updated_at: string
   thumbnail_url: string | null
+  collection_id: string
 }
 
 type PostRow = {
@@ -429,6 +509,7 @@ type PostRow = {
   theme: Theme
   slides: string
   thumbnail_url: string | null
+  collection_id: string
   created_at: string
   updated_at: string
 }
@@ -486,6 +567,7 @@ function postFromRow(row: PostRow): MediaPost {
     slides,
     layers,
     thumbnail_url: row.thumbnail_url,
+    collection_id: row.collection_id,
     created_at: row.created_at,
     updated_at: row.updated_at,
   }

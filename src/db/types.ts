@@ -49,7 +49,10 @@ export type BaseLayer = {
 export type TextLayer = BaseLayer & {
   kind: 'text'
   text: string
-  fontFamily?: 'display' | 'mono' | 'sans'
+  // Built-in aliases (display / mono / sans / geist / system) OR any
+  // user font family registered from ~/.redesign/fonts/. Free-form
+  // string so user fonts work without a code change.
+  fontFamily?: string
   fontSize: number
   fontWeight: 400 | 500 | 600 | 700
   color: string
@@ -107,6 +110,13 @@ export type Slide = {
   background?: string
 }
 
+export type MediaCollection = {
+  id: string
+  name: string
+  created_at: string
+  updated_at: string
+}
+
 export type MediaPost = {
   id: string
   title: string
@@ -116,6 +126,7 @@ export type MediaPost = {
   slides: Slide[]
   layers: Layer[]
   thumbnail_url: string | null
+  collection_id: string
   created_at: string
   updated_at: string
 }

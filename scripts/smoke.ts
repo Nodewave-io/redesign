@@ -26,13 +26,57 @@ function check(label: string, ok: boolean, detail?: unknown): void {
 }
 
 try {
+  console.log('[smoke] collections')
+  const initial = repo.listCollections()
+  check('bootstrap created a default collection', initial.length === 1)
+  const defaultCollection = initial[0]
+  check('default collection name is "Default"', defaultCollection.name === 'Default')
+
+  const renamed = repo.updateCollection(defaultCollection.id, 'Smoke')
+  check('updateCollection renames', renamed.name === 'Smoke')
+
+  const second = repo.createCollection('Marketing')
+  check('createCollection appends', repo.listCollections().length === 2 && second.name === 'Marketing')
+
+  let createWithoutCollectionRejected = false
+  try {
+    // @ts-expect-error: intentional missing collection_id
+    repo.createPost({ title: 'orphan' })
+  } catch {
+    createWithoutCollectionRejected = true
+  }
+  check('createPost rejects missing collection_id', createWithoutCollectionRejected)
+
   console.log('[smoke] posts round-trip')
   const empty = repo.listPosts()
   check('empty list', empty.length === 0)
 
-  const p = repo.createPost({ title: 'Hello', theme: 'dark' })
+  const p = repo.createPost({
+    collection_id: defaultCollection.id,
+    title: 'Hello',
+    theme: 'dark',
+  })
   check('createPost returns id+title', p.id.length > 0 && p.title === 'Hello')
   check('createPost page_count default 3', p.page_count === 3)
+  check('createPost stores collection_id', p.collection_id === defaultCollection.id)
+
+  // Filter by collection_id
+  const inDefault = repo.listPosts({ collection_id: defaultCollection.id })
+  const inSecond = repo.listPosts({ collection_id: second.id })
+  check('listPosts filters by collection', inDefault.length === 1 && inSecond.length === 0)
+
+  // deleteCollection refuses when posts still reference it
+  let deleteRefused = false
+  try {
+    repo.deleteCollection(defaultCollection.id)
+  } catch {
+    deleteRefused = true
+  }
+  check('deleteCollection rejects if posts attached', deleteRefused)
+
+  // Empty collection deletes cleanly
+  repo.deleteCollection(second.id)
+  check('deleteCollection succeeds when empty', repo.listCollections().length === 1)
 
   const fetched = repo.getPost(p.id)
   check('getPost matches', fetched.id === p.id)
@@ -111,7 +155,11 @@ try {
   console.log('[smoke] mcp write pipeline (applyWrite + applyBatch)')
   const { applyWrite } = await import('../src/mcp/write-helpers.js')
   const { applyBatch } = await import('../src/mcp/batch.js')
-  const mcpPost = repo.createPost({ title: 'MCP smoke', page_count: 3 })
+  const mcpPost = repo.createPost({
+    collection_id: defaultCollection.id,
+    title: 'MCP smoke',
+    page_count: 3,
+  })
   const w1 = applyWrite(
     mcpPost.id,
     mcpPost.updated_at,

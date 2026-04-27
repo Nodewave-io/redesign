@@ -62,7 +62,13 @@ list.
 
 ### 3. Build your first post
 
-Open the editor URL, click **New post**. Then in Claude Code:
+Open the editor URL. The home is a list of **collections**, a way to
+group posts by company, client, or topic so a single install can hold
+posts for multiple workstreams without mixing them. On first run a
+"Default" collection exists; rename it or click **New collection** to
+add more.
+
+Open a collection, click **New post**, then in Claude Code:
 
 > Open my latest post and build a 5-slide carousel about my new
 > product. Dark theme. Punchy hook on slide 1, value props on 2-4,
@@ -73,17 +79,62 @@ verify, and tells you when it's done. You watch the editor update in
 real time. Reload to refresh, or click **Download** to export a zip
 of PNGs ready to upload to LinkedIn / Instagram.
 
+When you ask Claude to start a fresh post, it will check
+`media_list_collections` first and either pick the right one from
+context ("the Nodewave collection") or ask you which collection it
+belongs in.
+
+### 4. Bring your own fonts (optional)
+
+Built-ins (Geist, Manrope, Space Mono, Inter, system) cover most
+posts, but if you have a brand typeface drop it in. Two ways:
+
+1. **From the editor:** open **Assets**, click **Upload**, pick
+   **Font**, drop in a `.ttf`, `.otf`, `.woff`, or `.woff2` file (up
+   to 5 MB). The file's name without the extension becomes the font
+   family. Once uploaded, the font shows up as a card on the Assets
+   page with a live "AaBbCc" specimen, and the editor's right-panel
+   font picker gains a "Your fonts" group.
+2. **By hand:** drop the file straight into `~/.redesign/fonts/`. The
+   editor scans this folder on every page load, so a refresh is
+   enough.
+
+Claude discovers your fonts via the `media_list_fonts` MCP tool and
+can reference them by family name in any text layer:
+
+> Use the InstrumentSerifItalic font for the section headings on
+> slides 2 and 4.
+
+Headless export (the **Download** button) loads the same fonts before
+the screenshot, so PNGs ship with your typography intact.
+
 ## Commands
 
 ```bash
-redesign start [--port 3000]   # Start the editor
+redesign                       # Start the editor (shorthand for `redesign start`)
+redesign start [--port 3000]   # Start the editor on a specific port
 redesign mcp                   # Run stdio MCP server (Claude Code calls this)
 redesign mcp-config            # Print .mcp.json snippet
 redesign init                  # Just bootstrap ~/.redesign/, no editor
 redesign seed [dir]            # Import a folder of TSX components/icons
 redesign doctor                # Environment check
+redesign update                # Upgrade to the latest version on npm
 redesign reset [--yes]         # Wipe ~/.redesign/ (asks first)
 redesign version
+```
+
+## Updating
+
+```bash
+npm install -g @nodewave-io/redesign
+```
+
+That's it. No `@<version>` needed, npm pulls whatever's tagged `latest`
+on the registry. To check whether a new version is available without
+upgrading, run `npm outdated -g`. Or, from inside Redesign itself:
+
+```bash
+redesign update
 ```
 
 ## Requirements
@@ -104,6 +155,7 @@ Everything lives under `~/.redesign/`:
   db.sqlite          single-file DB (WAL mode)
   assets/            uploaded images + component sources
   exports/           generated carousel zips
+  fonts/             user-supplied .ttf/.otf/.woff/.woff2 files
   chromium/          puppeteer's Chrome (auto-downloaded)
   config.json        editor port + pid (overwritten each `start`)
 ```

@@ -4,14 +4,24 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 // Sidebar for the standalone Redesign app. Two destinations:
-//   Posts   →  /        (overview grid of saved posts)
-//   Assets  →  /assets  (reusable image + component library)
-// `exact` on Posts: highlight only when on `/` itself, not when drilled
-// into /edit/[id]. From there, clicking Posts should feel like "go
-// back up", not "you're already here".
-const NAV_ITEMS = [
-  { label: 'Posts', href: '/', exact: true },
-  { label: 'Assets', href: '/assets' },
+//   Collections →  /        (overview grid of post collections)
+//   Assets      →  /assets  (reusable image + component library)
+// `match` lets a link claim multiple URL prefixes (so Collections
+// stays highlighted while drilled into /collections/[id]). The
+// /edit/[id] route doesn't match either prefix, so neither link is
+// active in the editor; clicking Collections from there feels like
+// "go back up", not "you're already here".
+const NAV_ITEMS: { label: string; href: string; match: (path: string) => boolean }[] = [
+  {
+    label: 'Collections',
+    href: '/',
+    match: (p) => p === '/' || p.startsWith('/collections'),
+  },
+  {
+    label: 'Assets',
+    href: '/assets',
+    match: (p) => p === '/assets' || p.startsWith('/assets/'),
+  },
 ]
 
 export function AdminSidebar({ extra }: { extra?: React.ReactNode } = {}) {
@@ -50,9 +60,7 @@ export function AdminSidebar({ extra }: { extra?: React.ReactNode } = {}) {
         >
           <nav className="flex flex-col space-y-1">
             {NAV_ITEMS.map((item) => {
-              const isActive = item.exact
-                ? pathname === item.href
-                : pathname === item.href || pathname.startsWith(item.href + '/')
+              const isActive = item.match(pathname)
               return (
                 <Link
                   key={item.href}

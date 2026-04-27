@@ -107,6 +107,13 @@ export type Slide = {
   background?: string
 }
 
+export type MediaCollection = {
+  id: string
+  name: string
+  created_at: string
+  updated_at: string
+}
+
 export type MediaPost = {
   id: string
   title: string
@@ -116,6 +123,7 @@ export type MediaPost = {
   slides: Slide[]
   layers: Layer[]
   thumbnail_url: string | null
+  collection_id: string
   created_at: string
   updated_at: string
 }

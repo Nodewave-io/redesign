@@ -16,6 +16,21 @@
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 
+-- ─── media_collections ────────────────────────────────────────────
+-- A bucket for grouping posts (e.g. one collection per company or
+-- client). Every post belongs to exactly one collection. The bootstrap
+-- code in src/db/client.ts auto-creates a 'Default' collection on the
+-- first run after upgrade and backfills any existing posts into it.
+CREATE TABLE IF NOT EXISTS media_collections (
+  id         TEXT PRIMARY KEY,
+  name       TEXT NOT NULL DEFAULT 'Untitled collection',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+CREATE INDEX IF NOT EXISTS media_collections_updated_at_idx
+  ON media_collections(updated_at DESC);
+
 -- ─── media_assets ─────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS media_assets (
   id           TEXT PRIMARY KEY,
@@ -38,6 +53,11 @@ CREATE INDEX IF NOT EXISTS media_assets_kind_idx       ON media_assets(kind);
 CREATE INDEX IF NOT EXISTS media_assets_created_at_idx ON media_assets(created_at DESC);
 
 -- ─── media_posts ──────────────────────────────────────────────────
+-- collection_id is nullable in the schema only for upgrade
+-- compatibility (ALTER ADD COLUMN can't add NOT NULL without a default
+-- on existing rows). The repo layer in src/db/repo.ts and the MCP
+-- tools both reject inserts without one, and the bootstrap backfills
+-- orphaned posts into the default collection. Treat it as required.
 CREATE TABLE IF NOT EXISTS media_posts (
   id            TEXT PRIMARY KEY,
   title         TEXT NOT NULL DEFAULT 'Untitled post',
@@ -46,11 +66,15 @@ CREATE TABLE IF NOT EXISTS media_posts (
   theme         TEXT NOT NULL DEFAULT 'dark' CHECK (theme IN ('dark','light')),
   slides        TEXT NOT NULL DEFAULT '{"slides":[],"layers":[]}',  -- JSON
   thumbnail_url TEXT,
+  collection_id TEXT REFERENCES media_collections(id) ON DELETE RESTRICT,
   created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
 CREATE INDEX IF NOT EXISTS media_posts_updated_at_idx ON media_posts(updated_at DESC);
+-- The collection_id index lives in the JS migration in src/db/client.ts.
+-- Older installs ran this schema before the ALTER added the column, so
+-- creating the index here would error with "no such column" on upgrade.
 
 -- Auto-touch updated_at when any CONTENT field changes but the
 -- caller forgot to advance the timestamp. Excludes thumbnail_url

@@ -1,114 +1,115 @@
 'use client'
 
-// Media overview — grid of all saved posts. Clicking a post navigates
-// to its editor at /edit/[id]. Clicking "Media" in the
-// sidebar from inside the editor brings you back here.
+// Collections overview, the new home. Posts are grouped into
+// collections (e.g. one per company / client / topic), and the
+// drilled-in /collections/[id] page is where the actual post grid
+// lives. Clicking "Collections" in the sidebar from inside a
+// collection or the editor returns to this page.
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { AdminSidebar } from '@/components/admin/sidebar'
-import { CANVAS, postToDbSlides, createEmptyPost, type Layer, type Slide } from './_lib/types'
-import { LayerNode, SlideBackground } from './_lib/render'
+import { SlideThumb } from '@/app/_components/slide-thumb'
+import type { Layer, Slide } from '@/app/_lib/types'
 
-type PostRow = {
+type RecentPost = {
   id: string
-  title: string
-  page_count: number
   theme: 'dark' | 'light'
-  thumbnail_url: string | null
-  updated_at: string
   slides: { slides: Slide[]; layers: Layer[] } | null
 }
 
-export default function MediaOverviewPage() {
+type CollectionRow = {
+  id: string
+  name: string
+  created_at: string
+  updated_at: string
+  post_count: number
+  recent_posts: RecentPost[]
+}
+
+export default function CollectionsHomePage() {
   const router = useRouter()
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<unknown>(null)
   const [authLoading, setAuthLoading] = useState(true)
-  const [posts, setPosts] = useState<PostRow[] | null>(null)
+  const [collections, setCollections] = useState<CollectionRow[] | null>(null)
   const [creating, setCreating] = useState(false)
-  const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
   useEffect(() => {
     ;(async () => {
-      // Local single-user mode — auth shim always returns our stub user.
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
       setAuthLoading(false)
     })()
-  }, [router])
+  }, [])
 
   const load = async () => {
-    const { data } = await supabase
-      .from('media_posts')
-      .select('id, title, page_count, theme, thumbnail_url, updated_at, slides')
-      .order('updated_at', { ascending: false })
-    setPosts((data as PostRow[]) ?? [])
+    const res = await fetch('/api/collections')
+    setCollections((await res.json()) as CollectionRow[])
   }
   useEffect(() => {
     if (user) load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
-  const onDownload = async (post: PostRow) => {
-    setDownloadingId(post.id)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/media/export', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token ?? ''}`,
-        },
-        body: JSON.stringify({ postId: post.id }),
-      })
-      if (!res.ok) throw new Error(await res.text())
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${post.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase() || 'post'}.zip`
-      a.click()
-      URL.revokeObjectURL(url)
-    } catch (err: any) {
-      alert('Download failed: ' + (err?.message ?? err))
-    } finally {
-      setDownloadingId(null)
-    }
-  }
-
   const onCreate = async () => {
+    const name = window.prompt('Name your new collection')?.trim()
+    if (!name) return
     setCreating(true)
     try {
-      const empty = createEmptyPost(3, 'dark')
-      const { data, error } = await supabase
-        .from('media_posts')
-        .insert({
-          title: empty.title,
-          page_count: empty.page_count,
-          aspect_ratio: empty.aspect_ratio,
-          theme: empty.theme,
-          slides: postToDbSlides({ slides: empty.slides, layers: empty.layers }),
-        })
-        .select('id')
-        .single()
-      if (error) throw error
-      router.push(`/edit/${data.id}`)
-    } catch (err: any) {
-      alert('Create failed: ' + (err?.message ?? err))
+      const res = await fetch('/api/collections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      const created = (await res.json()) as CollectionRow
+      router.push(`/collections/${created.id}`)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      alert('Create failed: ' + msg)
+    } finally {
+      // Reset even on success in case router.push silently fails or
+      // the user navigates back; otherwise the button stays disabled.
       setCreating(false)
     }
   }
 
-  const onDelete = async (id: string, title: string) => {
-    if (!confirm(`Delete "${title}"? This can't be undone.`)) return
-    const { error } = await supabase.from('media_posts').delete().eq('id', id)
-    if (error) {
-      alert('Delete failed: ' + error.message)
+  const onRename = async (c: CollectionRow) => {
+    const next = window.prompt('Rename collection', c.name)?.trim()
+    if (!next || next === c.name) return
+    try {
+      const res = await fetch(`/api/collections/${c.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: next }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      load()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      alert('Rename failed: ' + msg)
+    }
+  }
+
+  const onDelete = async (c: CollectionRow) => {
+    // Repo refuses to delete a collection that still has posts; surface
+    // that as a friendly confirm message ahead of the API call.
+    if (c.post_count > 0) {
+      alert(
+        `"${c.name}" still has ${c.post_count} post${c.post_count === 1 ? '' : 's'}. ` +
+          `Open it and delete or move them first.`,
+      )
       return
     }
-    setPosts((p) => p?.filter((x) => x.id !== id) ?? null)
+    if (!confirm(`Delete collection "${c.name}"? This can't be undone.`)) return
+    const res = await fetch(`/api/collections/${c.id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      alert('Delete failed: ' + (await res.text()))
+      return
+    }
+    setCollections((cs) => cs?.filter((x) => x.id !== c.id) ?? null)
   }
 
   if (authLoading) {
@@ -121,62 +122,49 @@ export default function MediaOverviewPage() {
   if (!user) return null
 
   return (
-    // Mirrors the Assets page layout so header spacing + main padding +
-    // fluid grid feel identical between the two. Any cross-page chrome
-    // changes should land in both files in lockstep.
     <div data-admin className="min-h-screen flex">
       <AdminSidebar />
       <main className="flex-1 md:ml-[252px] flex flex-col">
         <div className="px-6 py-10 flex-1 flex flex-col">
           <div className="flex items-center justify-between gap-4 mb-8">
             <h1 className="text-3xl md:text-4xl font-semibold tracking-tight" style={{ color: 'var(--nw-admin-fg)' }}>
-              Posts
+              Collections
             </h1>
-            {/* Asset library lives in the sidebar now; the top-right slot
-                is just the primary "New post" CTA. */}
             <PrimaryButton onClick={onCreate} disabled={creating}>
-              {creating ? 'Creating…' : 'New post'}
+              {creating ? 'Creating…' : 'New collection'}
             </PrimaryButton>
           </div>
 
-          {posts == null ? (
+          {collections == null ? (
             <p className="text-sm" style={{ color: 'var(--nw-admin-muted)' }}>
-              Loading posts…
+              Loading collections…
             </p>
-          ) : posts.length === 0 ? (
-            // Empty state: a dashed placeholder card sits in the grid
-            // footprint where a real post would live. Clicking the
-            // card creates a new post — same action as the header CTA
-            // but anchored visually so the page doesn't feel empty.
+          ) : collections.length === 0 ? (
             <div>
               <p
                 className="text-sm mb-4 leading-relaxed"
                 style={{ color: 'var(--nw-admin-muted)' }}
               >
-                No posts yet. Start one manually, or ask Claude to build one.
+                No collections yet. Create one for your first batch of posts.
               </p>
               <div
                 className="grid gap-4"
                 style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}
               >
-                <EmptyPostCard onClick={onCreate} disabled={creating} />
+                <EmptyCollectionCard onClick={onCreate} disabled={creating} />
               </div>
             </div>
           ) : (
-            // Fluid grid — same pattern as Assets: snap into as many
-            // 220px columns as fit. Keeps cards uniform on any width
-            // rather than stretching at big sizes.
             <div
               className="grid gap-4"
               style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}
             >
-              {posts.map((p) => (
-                <PostCard
-                  key={p.id}
-                  post={p}
-                  downloading={downloadingId === p.id}
-                  onDownload={() => onDownload(p)}
-                  onDelete={() => onDelete(p.id, p.title)}
+              {collections.map((c) => (
+                <CollectionCard
+                  key={c.id}
+                  collection={c}
+                  onRename={() => onRename(c)}
+                  onDelete={() => onDelete(c)}
                 />
               ))}
             </div>
@@ -187,21 +175,46 @@ export default function MediaOverviewPage() {
   )
 }
 
-// Dashed placeholder card used in the empty state. Shares the outer
-// shape (rounded-3xl + 10px padding + 4:5 inner) with PostCard so it
-// slots into the same grid cell size without jitter. Click-to-create
-// keeps the surface interactive, not decorative.
-function EmptyPostCard({
+function PrimaryButton({
+  onClick,
+  disabled,
+  children,
+}: {
+  onClick: () => void
+  disabled?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="inline-flex items-center gap-2 px-4 text-sm font-medium rounded-full transition-colors disabled:opacity-50 h-10"
+      style={{
+        background: 'var(--nw-admin-primary)',
+        color: '#FFFFFF',
+      }}
+      onMouseEnter={(e) => {
+        if (!e.currentTarget.disabled) e.currentTarget.style.background = 'var(--nw-admin-primary-hover)'
+      }}
+      onMouseLeave={(e) => {
+        if (!e.currentTarget.disabled) e.currentTarget.style.background = 'var(--nw-admin-primary)'
+      }}
+    >
+      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+      </svg>
+      {children}
+    </button>
+  )
+}
+
+function EmptyCollectionCard({
   onClick,
   disabled,
 }: {
   onClick: () => void
   disabled?: boolean
 }) {
-  // Single grey for every stroke + text in the placeholder so the
-  // inside of the card reads as one quiet ghosted shape. The outer
-  // frame matches a real PostCard (same white bg, same solid border),
-  // only the image slot stays dashed + transparent.
   const GREY = 'var(--nw-admin-muted)'
   return (
     <button
@@ -229,9 +242,6 @@ function EmptyPostCard({
         className="rounded-2xl flex items-center justify-center"
         style={{
           aspectRatio: '4 / 5',
-          // Image slot stays "invisible" — no fill, just a dashed
-          // outline hinting at where the slide thumbnail will appear
-          // once the post exists.
           background: 'transparent',
           border: `1px dashed ${GREY}`,
           color: GREY,
@@ -243,71 +253,82 @@ function EmptyPostCard({
       </div>
       <div className="pt-3 pb-2 px-1">
         <p className="text-sm font-medium truncate" style={{ color: GREY }}>
-          Click to create your first post
+          Create your first collection
         </p>
         <p className="text-[11px]" style={{ color: GREY }}>
-          or ask Claude to build one
+          group posts by company, client, or topic
         </p>
       </div>
     </button>
   )
 }
 
-// Primary action pill shared by the header CTA and the empty state.
-// Matches the Assets upload button (same height, padding, icon sizing)
-// so the two pages feel identical at a glance.
-function PrimaryButton({
-  onClick,
-  disabled,
-  children,
-}: {
-  onClick: () => void
-  disabled?: boolean
-  children: React.ReactNode
-}) {
-  // Dimensions match the landing's install pill
-  // (min-h-[52px] + px-5/6 py-3/3.5) so the editor's primary CTA reads
-  // as the same button family as the hero button users clicked to
-  // install. Keeps the two surfaces feeling like one product.
+// 2x2 mosaic of the collection's 4 most-recently-updated posts. Each
+// cell is exactly a quarter of the card thumbnail (2x2 inside a 4:5
+// area gives 4:5 cells, matching slide aspect). Empty cells fall
+// through to the surface-inner background so a 1- or 2-post collection
+// still reads as "has stuff" without forcing a placeholder pattern.
+// Always renders 4 cells in a 2x2 mosaic. Filled cells show a real
+// SlideThumb; empty cells show their slot number as "<n>/4" so a
+// half-full collection still reads as a deliberate composition rather
+// than a half-broken thumbnail. The cells meet edge-to-edge; the
+// card's outer rounded-2xl + overflow:hidden clips the four outer
+// corners.
+function CollectionPreview({ collection }: { collection: CollectionRow }) {
+  const posts = collection.recent_posts ?? []
+  const cells = [posts[0], posts[1], posts[2], posts[3]]
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="inline-flex items-center gap-2 px-4 text-sm font-medium rounded-full transition-colors disabled:opacity-50 h-10"
+    <div
+      className="w-full h-full grid"
       style={{
-        background: 'var(--nw-admin-primary)',
-        color: '#FFFFFF',
-      }}
-      onMouseEnter={(e) => {
-        if (!e.currentTarget.disabled) e.currentTarget.style.background = 'var(--nw-admin-primary-hover)'
-      }}
-      onMouseLeave={(e) => {
-        if (!e.currentTarget.disabled) e.currentTarget.style.background = 'var(--nw-admin-primary)'
+        gridTemplateColumns: '1fr 1fr',
+        gridTemplateRows: '1fr 1fr',
       }}
     >
-      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-      </svg>
-      {children}
-    </button>
+      {cells.map((post, i) => (
+        <div
+          key={post?.id ?? `empty-${i}`}
+          className="overflow-hidden"
+          style={{ background: 'var(--nw-admin-surface-inner)' }}
+        >
+          {post ? (
+            <SlideThumb post={post} />
+          ) : (
+            <EmptySlot index={i + 1} />
+          )}
+        </div>
+      ))}
+    </div>
   )
 }
 
-function PostCard({
-  post,
-  downloading,
-  onDownload,
+// Tabular numbers (font-feature-settings: "tnum") so the slash and
+// digits stay aligned; each unfilled slot reads like a counter ticking
+// toward four.
+function EmptySlot({ index }: { index: number }) {
+  return (
+    <div
+      className="w-full h-full flex items-center justify-center"
+      style={{
+        color: 'var(--nw-admin-surface-muted-soft)',
+        fontFeatureSettings: '"tnum"',
+      }}
+    >
+      <span className="text-sm font-medium">{index}/4</span>
+    </div>
+  )
+}
+
+function CollectionCard({
+  collection,
+  onRename,
   onDelete,
 }: {
-  post: PostRow
-  downloading: boolean
-  onDownload: () => void
+  collection: CollectionRow
+  onRename: () => void
   onDelete: () => void
 }) {
   return (
-    // Dark polaroid-style frame on the cream page. The inner slide
-    // preview keeps its own theme so light/dark slides render true;
-    // every text + button around it uses the `surface-*` tokens.
     <div
       className="rounded-3xl flex flex-col"
       style={{
@@ -316,32 +337,37 @@ function PostCard({
         padding: 10,
       }}
     >
-      <Link href={`/edit/${post.id}`} className="block">
+      <Link href={`/collections/${collection.id}`} className="block">
         <div
           className="rounded-2xl overflow-hidden"
-          style={{ aspectRatio: '4 / 5' }}
+          style={{
+            aspectRatio: '4 / 5',
+            background: 'var(--nw-admin-surface-inner)',
+          }}
         >
-          <FirstSlidePreview post={post} />
+          <CollectionPreview collection={collection} />
         </div>
         <div className="pt-3 pb-2 px-1">
-          <p className="text-sm font-medium truncate" style={{ color: 'var(--nw-admin-surface-fg)' }}>
-            {post.title}
+          <p
+            className="text-sm font-medium truncate"
+            style={{ color: 'var(--nw-admin-surface-fg)' }}
+          >
+            {collection.name}
           </p>
-          <p className="text-[11px]" style={{ color: 'var(--nw-admin-surface-muted)' }}>
-            {post.page_count} slides · edited {relative(post.updated_at)}
+          <p
+            className="text-[11px]"
+            style={{ color: 'var(--nw-admin-surface-muted)' }}
+          >
+            {collection.post_count} {collection.post_count === 1 ? 'post' : 'posts'}
           </p>
         </div>
       </Link>
 
       <div className="flex gap-1.5 pt-1">
-        {/* Secondary buttons living on the dark card. Background is the
-            inner surface token (slightly lighter than outer), text is
-            cream, hover bumps to surface-hover. */}
         <button
-          onClick={onDownload}
-          disabled={downloading}
-          title="Download as zip of PNGs"
-          className="flex-1 inline-flex items-center justify-center gap-1.5 text-[12px] rounded-full transition-colors disabled:opacity-50"
+          onClick={onRename}
+          title="Rename collection"
+          className="flex-1 inline-flex items-center justify-center gap-1.5 text-[12px] rounded-full transition-colors"
           style={{
             background: 'var(--nw-admin-surface-inner)',
             border: '1px solid var(--nw-admin-surface-border)',
@@ -349,20 +375,17 @@ function PostCard({
             height: 34,
           }}
           onMouseEnter={(e) => {
-            if (!e.currentTarget.disabled) e.currentTarget.style.background = 'var(--nw-admin-surface-hover)'
+            e.currentTarget.style.background = 'var(--nw-admin-surface-hover)'
           }}
           onMouseLeave={(e) => {
-            if (!e.currentTarget.disabled) e.currentTarget.style.background = 'var(--nw-admin-surface-inner)'
+            e.currentTarget.style.background = 'var(--nw-admin-surface-inner)'
           }}
         >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v3h16v-3" />
-          </svg>
-          {downloading ? 'Exporting…' : 'Download'}
+          Rename
         </button>
         <button
           onClick={onDelete}
-          title="Delete this post"
+          title="Delete collection"
           aria-label="Delete"
           className="shrink-0 inline-flex items-center justify-center rounded-full transition-colors"
           style={{
@@ -374,7 +397,7 @@ function PostCard({
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = 'var(--nw-admin-danger-bg)'
-            e.currentTarget.style.borderColor = 'rgba(220,38,38,0.4)'
+            e.currentTarget.style.borderColor = 'var(--nw-admin-danger)'
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'var(--nw-admin-surface-inner)'
@@ -388,117 +411,4 @@ function PostCard({
       </div>
     </div>
   )
-}
-
-// Live preview of the post's first slide — scaled to fit the card.
-// Uses the same LayerNode the editor + export pipeline use, so the
-// thumbnail stays in sync with what you see on the canvas. Falls back
-// to a muted "Empty" label when there are no layers yet.
-function FirstSlidePreview({ post }: { post: PostRow }) {
-  const wrapRef = useRef<HTMLDivElement>(null)
-  const [scale, setScale] = useState(0)
-
-  useLayoutEffect(() => {
-    const el = wrapRef.current
-    if (!el) return
-    const update = () => {
-      // Use max(width/W, height/H) so the scaled inner always covers
-      // the container. CSS `aspect-ratio: 4/5` + transform: scale by
-      // width alone can round to a sub-pixel gap at the bottom that
-      // exposes the container background. overflow:hidden clips any
-      // excess from the chosen-max side.
-      const ratioW = el.clientWidth / CANVAS.W
-      const ratioH = el.clientHeight / CANVAS.H
-      // Tiny overshoot so even at the browser's worst sub-pixel
-      // rounding the inner canvas covers the full container — the
-      // container's overflow:hidden clips the excess row/column.
-      setScale(Math.max(ratioW, ratioH) + 0.002)
-    }
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-
-  const slides = post.slides?.slides ?? []
-  const layers = post.slides?.layers ?? []
-  const slide0 = slides[0]
-  // A layer touches slide 0 if its [slideIndex, slideIndex+spans) range
-  // covers index 0. Layers with negative slideIndex bleed in from the
-  // left; spans>1 bleed across multiple slides.
-  const onFirst = layers.filter((l) => {
-    const span = l.spans ?? 1
-    return l.slideIndex <= 0 && l.slideIndex + span > 0
-  })
-
-  const empty = !slide0 || onFirst.length === 0
-
-  return (
-    <div
-      ref={wrapRef}
-      className="relative w-full h-full overflow-hidden"
-      style={{ pointerEvents: 'none' }}
-    >
-      {/* Scaled inner canvas. We render at actual 1000×1250 units and
-          downscale with a transform so layer coordinates stay truthful
-          no matter the card's pixel width. */}
-      {scale > 0 && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: CANVAS.W,
-            height: CANVAS.H,
-            transform: `scale(${scale})`,
-            transformOrigin: 'top left',
-          }}
-        >
-          <SlideBackground theme={post.theme} background={slide0?.background} />
-          {onFirst.map((layer) => {
-            const adjusted = {
-              ...layer,
-              x: layer.x + layer.slideIndex * CANVAS.W * 0, // stays on slide 0 coords
-            }
-            return (
-              <div
-                key={layer.id}
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  zIndex: layer.z ?? 0,
-                }}
-              >
-                <LayerNode layer={adjusted} theme={post.theme} />
-              </div>
-            )
-          })}
-        </div>
-      )}
-      {empty && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <p
-            className="text-xs"
-            style={{
-              color:
-                post.theme === 'dark'
-                  ? 'rgba(245,245,245,0.4)'
-                  : 'rgba(24,18,15,0.35)',
-            }}
-          >
-            Empty
-          </p>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function relative(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime()
-  if (ms < 60_000) return 'just now'
-  if (ms < 3600_000) return `${Math.floor(ms / 60_000)}m ago`
-  if (ms < 86_400_000) return `${Math.floor(ms / 3600_000)}h ago`
-  if (ms < 7 * 86_400_000) return `${Math.floor(ms / 86_400_000)}d ago`
-  return new Date(iso).toLocaleDateString()
 }

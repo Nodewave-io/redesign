@@ -15,10 +15,16 @@ export function registerPostReadTools(server: McpServer): void {
     'media_list_posts',
     {
       description:
-        'List media posts, most-recently-updated first. Returns id/title/theme/page_count/updated_at/thumbnail_url; use media_get_post for full layer data.',
-      inputSchema: {},
+        'List media posts, most-recently-updated first. Returns id/title/theme/page_count/updated_at/thumbnail_url/collection_id; use media_get_post for full layer data. Pass `collection_id` to scope to a single collection.',
+      inputSchema: {
+        collection_id: z.string().uuid().optional(),
+      },
     },
-    withLogging('media_list_posts', async () => textJson(listPosts())),
+    withLogging(
+      'media_list_posts',
+      async (args: { collection_id?: string }) =>
+        textJson(listPosts(args.collection_id ? { collection_id: args.collection_id } : undefined)),
+    ),
   )
 
   server.registerTool(

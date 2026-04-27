@@ -6,7 +6,14 @@ import { z } from 'zod'
 import { withLogging } from '../log.js'
 import { applyWrite, cryptoId, textJson } from '../write-helpers.js'
 import { themeSchema } from '../schemas.js'
-import { createPost, deletePost, getPost } from '../../db/repo.js'
+import {
+  NotFoundError,
+  createPost,
+  deletePost,
+  getCollection,
+  getPost,
+  listCollections,
+} from '../../db/repo.js'
 import type { Slide } from '../../db/types.js'
 
 export function registerPostWriteTools(server: McpServer): void {
@@ -14,8 +21,11 @@ export function registerPostWriteTools(server: McpServer): void {
     'media_create_post',
     {
       description:
-        'Create a new empty media post. Returns its id + updated_at. Default 3 slides, dark theme, 4:5 aspect ratio.',
+        'Create a new empty media post inside a specific collection. ' +
+        'Pass `collection_id` from `media_list_collections`. If you do not know which collection to use, call media_list_collections first and ask the user. ' +
+        'Returns the new post id + updated_at. Default 3 slides, dark theme, 4:5 aspect ratio.',
       inputSchema: {
+        collection_id: z.string().uuid().optional(),
         title: z.string().min(1).max(200).optional(),
         page_count: z.number().int().min(1).max(20).optional(),
         theme: themeSchema.optional(),
@@ -23,10 +33,46 @@ export function registerPostWriteTools(server: McpServer): void {
     },
     withLogging(
       'media_create_post',
-      async (args: { title?: string; page_count?: number; theme?: 'dark' | 'light' }) => {
+      async (args: {
+        collection_id?: string
+        title?: string
+        page_count?: number
+        theme?: 'dark' | 'light'
+      }) => {
+        if (!args.collection_id) {
+          // Surface the available collections in the error so Claude
+          // can pick one or ask the user without a second tool round.
+          const collections = listCollections().map((c) => ({
+            id: c.id,
+            name: c.name,
+          }))
+          throw new Error(
+            'collection_id is required. Available collections: ' +
+              JSON.stringify(collections) +
+              '. Ask the user which collection this post belongs in, or call media_create_collection to make a new one.',
+          )
+        }
+        // Validate the collection exists before insert so an invalid id
+        // produces a clear error rather than a SQLite FK violation.
+        try {
+          getCollection(args.collection_id)
+        } catch (err) {
+          if (err instanceof NotFoundError) {
+            const collections = listCollections().map((c) => ({
+              id: c.id,
+              name: c.name,
+            }))
+            throw new Error(
+              `collection_id ${args.collection_id} does not exist. Available collections: ` +
+                JSON.stringify(collections),
+            )
+          }
+          throw err
+        }
         const pageCount = args.page_count ?? 3
         const slides: Slide[] = Array.from({ length: pageCount }, () => ({ id: cryptoId() }))
         const post = createPost({
+          collection_id: args.collection_id,
           title: args.title ?? 'Untitled post',
           page_count: pageCount,
           aspect_ratio: '4:5',

@@ -11,6 +11,15 @@ export const SCHEMA_SQL = `
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 
+CREATE TABLE IF NOT EXISTS media_collections (
+  id         TEXT PRIMARY KEY,
+  name       TEXT NOT NULL DEFAULT 'Untitled collection',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS media_collections_updated_at_idx
+  ON media_collections(updated_at DESC);
+
 CREATE TABLE IF NOT EXISTS media_assets (
   id           TEXT PRIMARY KEY,
   kind         TEXT NOT NULL DEFAULT 'image' CHECK (kind IN ('image','component')),
@@ -38,10 +47,12 @@ CREATE TABLE IF NOT EXISTS media_posts (
   theme         TEXT NOT NULL DEFAULT 'dark' CHECK (theme IN ('dark','light')),
   slides        TEXT NOT NULL DEFAULT '{"slides":[],"layers":[]}',
   thumbnail_url TEXT,
+  collection_id TEXT REFERENCES media_collections(id) ON DELETE RESTRICT,
   created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE INDEX IF NOT EXISTS media_posts_updated_at_idx ON media_posts(updated_at DESC);
+-- collection_id index lives in the JS migration in lib/db/client.ts.
 
 -- Auto-touch updated_at when any CONTENT field changes but the
 -- caller forgot to advance the timestamp. Excludes thumbnail_url
